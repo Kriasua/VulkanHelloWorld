@@ -460,10 +460,11 @@
     <ClInclude Include="dependencies\glm\vec3.hpp" />
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
+    <ClInclude Include="src\ValidationLayerAssist.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\demo.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\ValidationLayerAssist.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dependencies\glfw-3.4\docs\footer.html" />

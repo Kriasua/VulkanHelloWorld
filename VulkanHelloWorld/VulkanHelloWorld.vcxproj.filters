@@ -984,12 +984,15 @@
     <ClInclude Include="dependencies\GLFW\glfw3native.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\ValidationLayerAssist.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\demo.cpp">
+    <ClCompile Include="src\ValidationLayerAssist.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
