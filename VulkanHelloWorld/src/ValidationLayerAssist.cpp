@@ -81,3 +81,18 @@ void ValidationLayerAssist::populateDebugMessengerCreateInfo(VkDebugUtilsMesseng
 	createInfo.pfnUserCallback = ValidationLayerAssist::debugCallback;
 	createInfo.pUserData = (char*)("我叼你妈的");
 }
+
+std::vector<const char*> ValidationLayerAssist::getRequiredExtensions()
+{
+	uint32_t glfwExtensionCount = 0;
+	const char** glfwExtensions;
+	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+	//接受一对迭代器，在这里是原始指针，把C风格数组const char**转换成std::vector<const char*>
+	std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+	if (enableValidationLayers)
+	{
+		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+	return extensions;
+}

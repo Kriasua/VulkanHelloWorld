@@ -23,5 +23,5 @@ public:
 	static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT callback, const VkAllocationCallbacks* pAllocator);
 	static bool checkValidationLayerSupport();
 	static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-
+	static std::vector<const char*> getRequiredExtensions();
 };
