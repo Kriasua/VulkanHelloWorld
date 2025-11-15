@@ -461,11 +461,13 @@
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
+    <ClInclude Include="src\SwapChain.h" />
     <ClInclude Include="src\ValidationLayerAssist.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp" />
+    <ClCompile Include="src\SwapChain.cpp" />
     <ClCompile Include="src\ValidationLayerAssist.cpp" />
   </ItemGroup>
   <ItemGroup>

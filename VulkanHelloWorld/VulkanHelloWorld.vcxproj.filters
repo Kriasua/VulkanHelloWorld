@@ -990,6 +990,9 @@
     <ClInclude Include="src\Physical&amp;LogicalDevice.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\SwapChain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -999,6 +1002,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SwapChain.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
