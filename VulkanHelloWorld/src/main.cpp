@@ -45,6 +45,8 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 
+	std::vector<VkImageView> swapChainImageViews;
+
 	void initWindow() {
 		glfwInit();
 
@@ -62,6 +64,8 @@ private:
 		pickPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createImageViews();
+		createGraphicsPipeline();
 	}
 
 	void mainLoop()
@@ -74,6 +78,11 @@ private:
 
 	void cleanUp()
 	{
+		for (const auto& imageView : swapChainImageViews)
+		{
+			vkDestroyImageView(logicalDevice, imageView, nullptr);
+		}
+
 		vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
 		vkDestroyDevice(logicalDevice, nullptr);
 		if (enableValidationLayers)
@@ -317,6 +326,45 @@ private:
 		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, swapChainImages.data());
+	}
+
+	void createImageViews()
+	{
+		swapChainImageViews.resize(swapChainImages.size());
+
+		//遍历交换链里的每一张图像，创建对应的ImageView
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			VkImageViewCreateInfo createInfo = {};
+			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			createInfo.image = swapChainImages[i];
+
+			//被创建的图像视图是一个2D图像
+			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			createInfo.format = swapChainImageFormat;
+
+
+			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			createInfo.subresourceRange.baseMipLevel = 0;
+			createInfo.subresourceRange.levelCount = 1;
+			createInfo.subresourceRange.baseArrayLayer = 0;
+			createInfo.subresourceRange.layerCount = 1;
+
+			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create image views!");
+			}
+		}
+	}
+
+	void createGraphicsPipeline()
+	{
+		//待完成
 	}
 };
 
