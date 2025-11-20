@@ -460,13 +460,17 @@
     <ClInclude Include="dependencies\glm\vec3.hpp" />
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
+    <ClInclude Include="src\fileManager.h" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
+    <ClInclude Include="src\shaderManager.h" />
     <ClInclude Include="src\SwapChain.h" />
     <ClInclude Include="src\ValidationLayerAssist.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\fileManager.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp" />
+    <ClCompile Include="src\shaderManager.cpp" />
     <ClCompile Include="src\SwapChain.cpp" />
     <ClCompile Include="src\ValidationLayerAssist.cpp" />
   </ItemGroup>
@@ -672,6 +676,7 @@
     <None Include="dependencies\glm\gtx\vector_angle.inl" />
     <None Include="dependencies\glm\gtx\vector_query.inl" />
     <None Include="dependencies\glm\gtx\wrap.inl" />
+    <None Include="shader\HelloTriangle.frag" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\glfw3.lib" />

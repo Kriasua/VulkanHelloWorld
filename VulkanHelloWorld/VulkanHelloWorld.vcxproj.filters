@@ -993,6 +993,12 @@
     <ClInclude Include="src\SwapChain.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\fileManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shaderManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -1005,6 +1011,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\SwapChain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fileManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shaderManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1486,6 +1498,7 @@
     <None Include="dependencies\glm\gtx\wrap.inl">
       <Filter>头文件</Filter>
     </None>
+    <None Include="shader\HelloTriangle.frag" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\glfw3.lib" />
