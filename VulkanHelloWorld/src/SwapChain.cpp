@@ -70,12 +70,15 @@ VkSurfaceFormatKHR SwapChainAssist::chooseSwapSurfaceFormat(const std::vector<Vk
 
 VkPresentModeKHR SwapChainAssist::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
 {
-	//首先寻找mailbox模式，这是一种低延迟且无撕裂的显示模式
-	for (const auto& availablePresentMode : availablePresentModes)
+	if (!enableValidationLayers)
 	{
-		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+		//首先寻找mailbox模式，这是一种低延迟且无撕裂的显示模式
+		for (const auto& availablePresentMode : availablePresentModes)
 		{
-			return availablePresentMode;
+			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+			{
+				return availablePresentMode;
+			}
 		}
 	}
 
