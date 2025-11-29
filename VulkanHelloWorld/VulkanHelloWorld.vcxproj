@@ -115,6 +115,10 @@
       <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -135,6 +139,10 @@
       <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glfw-3.4\deps\getopt.h" />
@@ -465,6 +473,7 @@
     <ClInclude Include="src\shaderManager.h" />
     <ClInclude Include="src\SwapChain.h" />
     <ClInclude Include="src\ValidationLayerAssist.h" />
+    <ClInclude Include="src\VertexBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\fileManager.cpp" />
@@ -473,6 +482,7 @@
     <ClCompile Include="src\shaderManager.cpp" />
     <ClCompile Include="src\SwapChain.cpp" />
     <ClCompile Include="src\ValidationLayerAssist.cpp" />
+    <ClCompile Include="src\VertexBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dependencies\glfw-3.4\docs\footer.html" />
@@ -676,7 +686,20 @@
     <None Include="dependencies\glm\gtx\vector_angle.inl" />
     <None Include="dependencies\glm\gtx\vector_query.inl" />
     <None Include="dependencies\glm\gtx\wrap.inl" />
-    <None Include="shader\HelloTriangle.frag" />
+    <CustomBuild Include="shader\frag.frag">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="shader\vert.vert">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\glfw3.lib" />

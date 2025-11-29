@@ -13,9 +13,11 @@
 #include "fileManager.h"
 #include "shaderManager.h"
 #include <chrono>
+#include "VertexBuffer.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+const int MAX_FRAMES_IN_FLIGHT = 2;
 
 class HelloTriangleApplication
 {
@@ -63,14 +65,25 @@ private:
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore renderFinishedSemaphore;
 
+	std::vector<VkSemaphore> imageAvailableSemaphores;
+	std::vector<VkSemaphore> renderFinishedSemaphores;
+	std::vector<VkFence> inFlightFences;
+	size_t currentFrame = 0;
+
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+
+	bool framebufferResized = false;
 
 	void initWindow() {
 		glfwInit();
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	}
 
 	void initVulkan()
@@ -86,8 +99,9 @@ private:
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
+		VertexBuffer::createVertexBuffer(logicalDevice, physicalDevice, vertexBuffer, vertexBufferMemory);
 		createCommandBuffers();
-		createSemaphore();
+		createSyncObjects();
 	}
 
 	void mainLoop()
@@ -107,10 +121,11 @@ private:
 			if (timeDiff >= 0.3f) {
 				// 计算 FPS
 				float fps = frameCount / timeDiff;
-				// 计算每一帧的耗时 (ms)
-				float msPerFrame = 1000.0f / fps;
+				int fpsinINT = static_cast<int>(fps);
 
-				std::cout << "FPS: " << fps << " (" << msPerFrame << " ms/frame)" << std::endl;
+				//std::cout << "FPS: " << fps << " (" << msPerFrame << " ms/frame)" << std::endl;
+				std::string title = "Vulkan - FPS: " + std::to_string(fpsinINT);
+				glfwSetWindowTitle(window, title.c_str());
 
 				// 重置
 				lastTime = currentTime;
@@ -121,17 +136,20 @@ private:
 		vkDeviceWaitIdle(logicalDevice);
 	}
 
-	void cleanUp()
+	static void framebufferResizeCallback(GLFWwindow* window,int width, int height)
 	{
-		vkDestroySemaphore(logicalDevice, renderFinishedSemaphore, nullptr);
-		vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
-		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
+	}
 
+	void cleanUpSwapChain()
+	{
 		for (const auto& framebuffer : swapChainFramebuffers)
 		{
 			vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
 		}
 
+		vkFreeCommandBuffers(logicalDevice, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 		vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
@@ -139,13 +157,31 @@ private:
 		{
 			vkDestroyImageView(logicalDevice, imageView, nullptr);
 		}
-
 		vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
+	}
+
+	void cleanUp()
+	{
+		cleanUpSwapChain();
+
+		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
+			vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
+			vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+		}
+
+		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+
 		vkDestroyDevice(logicalDevice, nullptr);
 		if (enableValidationLayers)
 		{
 			ValidationLayerAssist::DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
 		}
+
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		vkDestroyInstance(instance, nullptr);
 		glfwDestroyWindow(window);
@@ -161,14 +197,26 @@ private:
 		* 3.等到信号量renderFinishedSemaphore变“绿灯”时呈现图像，把刚才渲染好的图像提交给交换链进行显示。
 		*/
 
-		uint32_t imageIndex;
-		vkAcquireNextImageKHR(logicalDevice, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+		
 
+		uint32_t imageIndex;
+		VkResult result = vkAcquireNextImageKHR(logicalDevice, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+			recreateSwapChain();
+			return;
+		}
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
+
+		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		std::array<VkSemaphore,1> waitSemaphores = { imageAvailableSemaphore };
+		std::array<VkSemaphore,1> waitSemaphores = { imageAvailableSemaphores[currentFrame]};
 		std::array<VkPipelineStageFlags,1> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 		submitInfo.waitSemaphoreCount = 1;
@@ -178,10 +226,10 @@ private:
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
-		std::array<VkSemaphore,1> signalSemaphores = { renderFinishedSemaphore };
+		std::array<VkSemaphore,1> signalSemaphores = { renderFinishedSemaphores[currentFrame]};
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores.data();
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
@@ -195,8 +243,17 @@ private:
 		presentInfo.pSwapchains = swapChains.data();
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
-		vkQueuePresentKHR(presentQueue, &presentInfo);
+		result = vkQueuePresentKHR(presentQueue, &presentInfo);
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else if (result != VK_SUCCESS) {
+			throw std::runtime_error("failed to present swap chain image!");
+		}
 
+
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void createInstance()
@@ -560,13 +617,21 @@ private:
 		////////////////////// 图形管线其他阶段的配置 (固定功能阶段) /////////////////////////////
 		/////////////////////////////////////////////////////////////////////////////////////
 
-		//目前是在shader里硬编码顶点数据，所以这里不需要提供任何顶点输入相关的信息
+		
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+		VertexLayout layout;
+		layout.addAttribute(2);
+		layout.addAttribute(3);
+		auto bindingDescription = layout.getBindingDescription();
+		auto attributeDescriptions = layout.getAttributeDescriptions();
+		//auto bindingDescription = VertexInput::getBindingDescription();
+		//auto attributeDescriptions = VertexInput::getAttributeDescriptions();
+
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -769,7 +834,12 @@ private:
 			//开始录制
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+			std::vector<VkBuffer> vertexbuffers = { vertexBuffer };
+			std::vector<VkDeviceSize> offsets = { 0 };
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexbuffers.data(), offsets.data());
+
+			vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 			{
@@ -779,15 +849,55 @@ private:
 		
 	}
 
-	void createSemaphore()
+	void createSyncObjects()
 	{
+		size_t n = swapChainFramebuffers.size();
+		imageAvailableSemaphores.resize(n);
+		renderFinishedSemaphores.resize(n);
+		inFlightFences.resize(n);
+
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-			vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS)
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			throw std::runtime_error("failed to create semaphores!");
+			if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
+				vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create semaphores!");
+			}
 		}
+
+		VkFenceCreateInfo fenceInfo = {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			if (vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create fences!");
+			}
+		}
+	}
+
+	void recreateSwapChain()
+	{
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+		while (width == 0 || height == 0)
+		{
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(logicalDevice);
+
+		cleanUpSwapChain();
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandBuffers();
 	}
 };
 
