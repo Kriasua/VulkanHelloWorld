@@ -999,7 +999,13 @@
     <ClInclude Include="src\shaderManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\VertexBuffer.h">
+    <ClInclude Include="src\Buffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Vertex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Description.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1022,7 +1028,13 @@
     <ClCompile Include="src\shaderManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\VertexBuffer.cpp">
+    <ClCompile Include="src\Buffer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Vertex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Description.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

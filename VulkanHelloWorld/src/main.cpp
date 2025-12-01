@@ -13,7 +13,9 @@
 #include "fileManager.h"
 #include "shaderManager.h"
 #include <chrono>
-#include "VertexBuffer.h"
+#include "Buffer.h"
+#include "Vertex.h"
+#include "Description.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -54,6 +56,8 @@ private:
 	std::vector<VkImageView> swapChainImageViews;
 
 	VkRenderPass renderPass;
+
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -72,6 +76,12 @@ private:
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+	
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
 	bool framebufferResized = false;
 
@@ -96,10 +106,12 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
+		Descriptor::createDescriptorSetLayout(logicalDevice, descriptorSetLayout);
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
-		VertexBuffer::createVertexBuffer(logicalDevice, physicalDevice, vertexBuffer, vertexBufferMemory);
+		VertexBuffer::createVertexBuffer(commandPool,graphicsQueue,logicalDevice, physicalDevice, vertexBuffer, vertexBufferMemory);
+		IndexBuffer::createIndexBuffer(commandPool, graphicsQueue, logicalDevice, physicalDevice, indexBuffer, indexBufferMemory);
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -163,6 +175,9 @@ private:
 	void cleanUp()
 	{
 		cleanUpSwapChain();
+		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+		vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
 
 		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
@@ -210,6 +225,8 @@ private:
 		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
+
+		//Descriptor::updateUniformBuffer(logicalDevice,uniformBuffersMemory,swapChainExtent,imageIndex);
 
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
@@ -620,13 +637,10 @@ private:
 		
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		VertexLayout layout;
-		layout.addAttribute(2);
-		layout.addAttribute(3);
+		layout.push<glm::vec2>();
+		layout.push<glm::vec3>();
 		auto bindingDescription = layout.getBindingDescription();
 		auto attributeDescriptions = layout.getAttributeDescriptions();
-		//auto bindingDescription = VertexInput::getBindingDescription();
-		//auto attributeDescriptions = VertexInput::getAttributeDescriptions();
-
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -717,8 +731,8 @@ private:
 		//通常用于给shader使用的uniform变量
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
-		pipelineLayoutInfo.pSetLayouts = nullptr;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
@@ -838,8 +852,11 @@ private:
 			std::vector<VkBuffer> vertexbuffers = { vertexBuffer };
 			std::vector<VkDeviceSize> offsets = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexbuffers.data(), offsets.data());
+			
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-			vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			//vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 2, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 			{

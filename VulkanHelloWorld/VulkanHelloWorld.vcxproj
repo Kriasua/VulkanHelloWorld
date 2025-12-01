@@ -468,21 +468,25 @@
     <ClInclude Include="dependencies\glm\vec3.hpp" />
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
+    <ClInclude Include="src\Description.h" />
     <ClInclude Include="src\fileManager.h" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
     <ClInclude Include="src\shaderManager.h" />
     <ClInclude Include="src\SwapChain.h" />
     <ClInclude Include="src\ValidationLayerAssist.h" />
-    <ClInclude Include="src\VertexBuffer.h" />
+    <ClInclude Include="src\Buffer.h" />
+    <ClInclude Include="src\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Description.cpp" />
     <ClCompile Include="src\fileManager.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp" />
     <ClCompile Include="src\shaderManager.cpp" />
     <ClCompile Include="src\SwapChain.cpp" />
     <ClCompile Include="src\ValidationLayerAssist.cpp" />
-    <ClCompile Include="src\VertexBuffer.cpp" />
+    <ClCompile Include="src\Buffer.cpp" />
+    <ClCompile Include="src\Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dependencies\glfw-3.4\docs\footer.html" />
