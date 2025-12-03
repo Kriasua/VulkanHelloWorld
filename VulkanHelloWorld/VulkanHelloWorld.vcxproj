@@ -468,6 +468,7 @@
     <ClInclude Include="dependencies\glm\vec3.hpp" />
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
+    <ClInclude Include="dependencies\stb_image.h" />
     <ClInclude Include="src\Description.h" />
     <ClInclude Include="src\fileManager.h" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />

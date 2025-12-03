@@ -8,6 +8,7 @@ struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
+	float time;
 };
 
 
@@ -17,4 +18,6 @@ public:
 	static void createDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
 	static void updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory>& uniformBuffersMemory, VkExtent2D swapChainExtent, uint32_t currentImage);
 	static void createUniformBuffers(VkDevice device, VkPhysicalDevice physicalDevice, std::vector<VkImage>& swapChainImages, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDeviceMemory>& uniformBuffersMemory);
+	static void createDescriptorPool(VkDevice device, size_t swapChainImagesSize, VkDescriptorPool& descriptorPool);
+	static void createDescriptorSets(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool, size_t swapChainImagesSize, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDescriptorSet>& descriptorSets);
 };

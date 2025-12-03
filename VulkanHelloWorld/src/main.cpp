@@ -1,4 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
+#define STB_IMAGE_IMPLEMENTATION
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <stdexcept>
@@ -7,6 +8,7 @@
 #include <vector>
 #include <array>
 #include <set>
+#include <stb_image.h>
 #include "ValidationLayerAssist.h"
 #include "Physical&LogicalDevice.h"
 #include "SwapChain.h"
@@ -83,6 +85,12 @@ private:
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
+
+	VkImage textureImage;
+	VkDeviceMemory textureImageMemory;
+
 	bool framebufferResized = false;
 
 	void initWindow() {
@@ -110,8 +118,12 @@ private:
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
+		createTextureImage();
 		VertexBuffer::createVertexBuffer(commandPool,graphicsQueue,logicalDevice, physicalDevice, vertexBuffer, vertexBufferMemory);
 		IndexBuffer::createIndexBuffer(commandPool, graphicsQueue, logicalDevice, physicalDevice, indexBuffer, indexBufferMemory);
+		Descriptor::createUniformBuffers(logicalDevice, physicalDevice, swapChainImages, uniformBuffers, uniformBuffersMemory);
+		Descriptor::createDescriptorPool(logicalDevice, swapChainImages.size(), descriptorPool);
+		Descriptor::createDescriptorSets(logicalDevice, descriptorSetLayout, descriptorPool, swapChainImages.size(), uniformBuffers, descriptorSets);
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -175,6 +187,8 @@ private:
 	void cleanUp()
 	{
 		cleanUpSwapChain();
+
+		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
 		vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
@@ -226,7 +240,7 @@ private:
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
 
-		//Descriptor::updateUniformBuffer(logicalDevice,uniformBuffersMemory,swapChainExtent,imageIndex);
+		Descriptor::updateUniformBuffer(logicalDevice,uniformBuffersMemory,swapChainExtent,imageIndex);
 
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
@@ -683,7 +697,7 @@ private:
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 		//正面判定，三角形顶点按顺时针方向排列为正面
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f;
 		rasterizer.depthBiasClamp = 0.0f;
@@ -735,6 +749,7 @@ private:
 		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
 
 		if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
 		{
@@ -854,8 +869,9 @@ private:
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexbuffers.data(), offsets.data());
 			
 			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-			//vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 2, 0, 0);
+			
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+			
 			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
@@ -915,6 +931,47 @@ private:
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandBuffers();
+	}
+
+	void createTextureImage()
+	{
+		int texWidth, texHeight, texChannels;
+		stbi_uc* pixels = stbi_load("images/yoasobi.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		if(!pixels)
+		{
+			throw std::runtime_error("failed to load texture image!");
+		}
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		Buffer::createBuffer(logicalDevice, physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		void* data;
+		vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+		stbi_image_free(pixels);
+
+		VkImageCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		createInfo.imageType = VK_IMAGE_TYPE_2D;
+		createInfo.extent.width = static_cast<uint32_t>(texWidth);
+		createInfo.extent.height = static_cast<uint32_t>(texHeight);
+		createInfo.extent.depth = 1;
+		createInfo.mipLevels = 1;
+		createInfo.arrayLayers = 1;
+		createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+		createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		if (vkCreateImage(logicalDevice, &createInfo, nullptr, &textureImage) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create texture image!");
+		}
+
 	}
 };
 
