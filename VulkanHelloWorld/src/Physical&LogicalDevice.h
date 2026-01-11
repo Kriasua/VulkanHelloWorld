@@ -3,21 +3,12 @@
 #include <GLFW/glfw3.h>
 #include<vector>
 #include<optional>
+#include "Core/Devices.h"
 
-struct QueueFamilyIndices
-{
-	std::optional<uint32_t>(graphicsFamily);
-	std::optional<uint32_t>(presentFamily);
-	bool isComplete()
-	{
-		return graphicsFamily.has_value() && presentFamily.has_value();
-	}
-};
 
 class PhysicalAndLogicalDeviceAssis
 {
 public:
-	static bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
-	static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
-
+	//static bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+	//static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 };

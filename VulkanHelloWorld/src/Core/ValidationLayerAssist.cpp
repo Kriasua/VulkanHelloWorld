@@ -96,3 +96,5 @@ std::vector<const char*> ValidationLayerAssist::getRequiredExtensions()
 	}
 	return extensions;
 }
+
+const std::vector<const char*> ValidationLayerAssist::validationLayers = { "VK_LAYER_KHRONOS_validation" };

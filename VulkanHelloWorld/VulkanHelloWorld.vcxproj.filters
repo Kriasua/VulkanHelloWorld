@@ -984,7 +984,7 @@
     <ClInclude Include="dependencies\GLFW\glfw3native.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\ValidationLayerAssist.h">
+    <ClInclude Include="src\Core\ValidationLayerAssist.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Physical&amp;LogicalDevice.h">
@@ -1011,7 +1011,7 @@
     <ClInclude Include="dependencies\stb_image.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Device.h">
+    <ClInclude Include="src\Core\Devices.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1019,7 +1019,7 @@
     <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\ValidationLayerAssist.cpp">
+    <ClCompile Include="src\Core\ValidationLayerAssist.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp">
@@ -1043,7 +1043,7 @@
     <ClCompile Include="src\Description.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\Device.cpp">
+    <ClCompile Include="src\Core\Devices.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
