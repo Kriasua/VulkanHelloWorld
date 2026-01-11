@@ -1011,6 +1011,9 @@
     <ClInclude Include="dependencies\stb_image.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Device.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -1038,6 +1041,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Description.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Device.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -469,6 +469,7 @@
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
     <ClInclude Include="dependencies\stb_image.h" />
+    <ClInclude Include="src\Core\Device.h" />
     <ClInclude Include="src\Description.h" />
     <ClInclude Include="src\fileManager.h" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
@@ -479,6 +480,7 @@
     <ClInclude Include="src\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Core\Device.cpp" />
     <ClCompile Include="src\Description.cpp" />
     <ClCompile Include="src\fileManager.cpp" />
     <ClCompile Include="src\main.cpp" />

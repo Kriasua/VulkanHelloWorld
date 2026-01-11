@@ -5,13 +5,13 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in float inTime;
+layout(location = 2) in vec2 inTexCoord;
+
+layout(binding = 1)uniform sampler2D texSampler;
 
 void main()
 {	
-    
-    float g = (cos(inTime * 1.0) + 1.0) / 2.0;
    
-    vec3 finalColor = vec3(fragColor.r, g, fragColor.b);
-	outColor = vec4(finalColor, 1.0);
+	outColor = texture(texSampler,inTexCoord);
 
 }

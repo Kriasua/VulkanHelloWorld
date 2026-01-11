@@ -19,5 +19,5 @@ public:
 	static void updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory>& uniformBuffersMemory, VkExtent2D swapChainExtent, uint32_t currentImage);
 	static void createUniformBuffers(VkDevice device, VkPhysicalDevice physicalDevice, std::vector<VkImage>& swapChainImages, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDeviceMemory>& uniformBuffersMemory);
 	static void createDescriptorPool(VkDevice device, size_t swapChainImagesSize, VkDescriptorPool& descriptorPool);
-	static void createDescriptorSets(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool, size_t swapChainImagesSize, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDescriptorSet>& descriptorSets);
+	static void createDescriptorSets(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool, size_t swapChainImagesSize, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDescriptorSet>& descriptorSets, VkImageView textureImageView, VkSampler textureSampler);
 };

@@ -31,6 +31,8 @@ bool PhysicalAndLogicalDeviceAssis::isDeviceSuitable(VkPhysicalDevice device, Vk
 		&&
 		deviceFeatures.geometryShader
 		&&
+		deviceFeatures.samplerAnisotropy
+		&&
 		indices.isComplete()
 		&&
 		swapChainAdequate)

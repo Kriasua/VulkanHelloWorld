@@ -42,31 +42,7 @@ std::vector<VkVertexInputAttributeDescription> VertexLayout::getAttributeDescrip
 	return m_AttributeDescriptions;
 }
 
-//void VertexLayout::addAttribute(int countOfDimensional)
-//{
-//	VkVertexInputAttributeDescription attributeDescription{};
-//	attributeDescription.binding = 0;
-//	attributeDescription.location = m_Locationindex++;
-//	switch (countOfDimensional)
-//	{
-//	case 1:
-//		attributeDescription.format = VK_FORMAT_R32_SFLOAT;
-//		break;
-//	case 2:
-//		attributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-//		break;
-//	case 3:
-//		attributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-//		break;
-//	case 4:
-//		attributeDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-//		break;
-//	}
-//	size_t size = sizeof(float) * countOfDimensional;
-//	attributeDescription.offset = m_stride;
-//	m_stride += size;
-//	m_AttributeDescriptions.push_back(attributeDescription);
-//}
+
 
 void IndexBuffer::createIndexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory)
 {
