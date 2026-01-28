@@ -18,6 +18,7 @@
 #include "Vertex.h"
 #include "Description.h"
 #include "Core/Devices.h"
+#include "Graphics/Swapchain.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -32,6 +33,7 @@ public:
 	{
 		initWindow();
 		m_device = std::make_unique<Devices>(window);
+		m_swapChain = std::make_unique<SwapChain>(*m_device, windowExtent);
 		initVulkan();
 		mainLoop();
 		cleanUp();
@@ -40,14 +42,8 @@ public:
 private:
 
 	std::unique_ptr<Devices> m_device;
-
-	VkSwapchainKHR swapChain;
-	std::vector<VkImage> swapChainImages;
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
-
-	std::vector<VkImageView> swapChainImageViews;
-
+	std::unique_ptr<SwapChain> m_swapChain;
+	VkExtent2D windowExtent;
 	VkRenderPass renderPass;
 
 	VkDescriptorSetLayout descriptorSetLayout;
@@ -91,24 +87,23 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+		windowExtent = { WIDTH, HEIGHT };
 	}
 
 	void initVulkan()
 	{
-		createSwapChain();
-		createImageViews();
 		createRenderPass();
 		Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout);
 		createGraphicsPipeline();
-		createFramebuffers();
+		m_swapChain->createFramebuffers(renderPass);
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
 		VertexBuffer::createVertexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), vertexBuffer, vertexBufferMemory);
 		IndexBuffer::createIndexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), indexBuffer, indexBufferMemory);
-		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), swapChainImages, uniformBuffers, uniformBuffersMemory);
-		Descriptor::createDescriptorPool(m_device->getLogicalDevice(), swapChainImages.size(), descriptorPool);
-		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, descriptorPool, swapChainImages.size(), uniformBuffers, descriptorSets, textureImageView, textureSampler);
+		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), m_swapChain->getSwapChainImages(), uniformBuffers, uniformBuffersMemory);
+		Descriptor::createDescriptorPool(m_device->getLogicalDevice(), m_swapChain->getSwapChainImages().size(), descriptorPool);
+		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, descriptorPool, m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, textureImageView, textureSampler);
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -153,20 +148,10 @@ private:
 
 	void cleanUpSwapChain()
 	{
-		for (const auto& framebuffer : swapChainFramebuffers)
-		{
-			vkDestroyFramebuffer(m_device->getLogicalDevice(), framebuffer, nullptr);
-		}
-
 		vkFreeCommandBuffers(m_device->getLogicalDevice(), m_device->getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		vkDestroyPipeline(m_device->getLogicalDevice(), graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(m_device->getLogicalDevice(), pipelineLayout, nullptr);
 		vkDestroyRenderPass(m_device->getLogicalDevice(), renderPass, nullptr);
-		for (const auto& imageView : swapChainImageViews)
-		{
-			vkDestroyImageView(m_device->getLogicalDevice(), imageView, nullptr);
-		}
-		vkDestroySwapchainKHR(m_device->getLogicalDevice(), swapChain, nullptr);
 	}
 
 	void cleanUp()
@@ -209,7 +194,7 @@ private:
 		
 
 		uint32_t imageIndex;
-		VkResult result = vkAcquireNextImageKHR(m_device->getLogicalDevice(), swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(m_device->getLogicalDevice(), m_swapChain->getSwapChain(), std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 			recreateSwapChain();
@@ -219,7 +204,7 @@ private:
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
 
-		Descriptor::updateUniformBuffer(m_device->getLogicalDevice(),uniformBuffersMemory,swapChainExtent,imageIndex);
+		Descriptor::updateUniformBuffer(m_device->getLogicalDevice(),uniformBuffersMemory, m_swapChain->getSwapChainExtent(),imageIndex);
 
 		vkResetFences(m_device->getLogicalDevice(), 1, &inFlightFences[currentFrame]);
 
@@ -248,7 +233,7 @@ private:
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores.data();
-		std::array<VkSwapchainKHR, 1> swapChains = { swapChain };
+		std::array<VkSwapchainKHR, 1> swapChains = { m_swapChain->getSwapChain() };
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains.data();
 		presentInfo.pImageIndices = &imageIndex;
@@ -266,94 +251,12 @@ private:
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void createSwapChain()
-	{
-		// --- 阶段 1: 协商 (委托给辅助类) ---
-		// 查询物理设备对交换链的支持情况 (它能做什么？)
-		SwapChainSupportDetails swapChainSupport = m_device->getSwapChainSupportDetails(m_device->getPhysicalDevice());
-
-		// 根据查询到的结果，“协商”出我们想要的最佳规格
-		VkSurfaceFormatKHR surfaceFormat = SwapChainAssist::chooseSwapSurfaceFormat(swapChainSupport.formats);
-		VkPresentModeKHR presentMode = SwapChainAssist::chooseSwapPresentMode(swapChainSupport.presentModes);
-		VkExtent2D extent = SwapChainAssist::chooseSwapExtent(swapChainSupport.capabilities, window);
-
-		// --- 阶段 2: 决定图像数量 ---
-		// 我们想要的数量是“最小支持数 + 1”（尝试开启三重缓冲）
-		uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-
-		//maxImageCount为0表示没有上限
-		//或者我们想要的imageCount已经超过了硬件支持的上限，就必须让步
-		if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
-		{
-			imageCount = swapChainSupport.capabilities.maxImageCount;
-		}
-
-		// (保存这些协商好的结果，后面创建ImageView时会用到)
-		swapChainImageFormat = surfaceFormat.format;
-		swapChainExtent = extent;
-
-		// --- 阶段 3: 填充 CreateInfo 结构体 (核心) ---
-		VkSwapchainCreateInfoKHR createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = m_device->getSurface();
-
-		//只是请求或者建议，并不保证一定能得到这么多的image，有可能更多，所以在下面还要重新查询一次
-		createInfo.minImageCount = imageCount;
-		createInfo.imageFormat = surfaceFormat.format;
-		createInfo.imageColorSpace = surfaceFormat.colorSpace;
-		createInfo.imageExtent = extent;
-		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-		QueueFamilyIndices indices = m_device->getQueueFamilyIndices(m_device->getPhysicalDevice());
-		std::vector<uint32_t> queueFamilyIndices = { indices.graphicsFamily.value(), indices.presentFamily.value() };
-
-		if (indices.graphicsFamily != indices.presentFamily)
-		{
-			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-			createInfo.queueFamilyIndexCount = 2;
-			createInfo.pQueueFamilyIndices = queueFamilyIndices.data();
-		}
-		else
-		{
-			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			createInfo.queueFamilyIndexCount = 0;
-			createInfo.pQueueFamilyIndices = nullptr;
-		}
-
-		createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = presentMode;
-		createInfo.clipped = VK_TRUE;
-		createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-		if (vkCreateSwapchainKHR(m_device->getLogicalDevice(), &createInfo, nullptr, &swapChain) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create swap-chain!");
-		}
-
-		//再重新查询一次，得到实际的image数量
-		vkGetSwapchainImagesKHR(m_device->getLogicalDevice(), swapChain, &imageCount, nullptr);
-		swapChainImages.resize(imageCount);
-		vkGetSwapchainImagesKHR(m_device->getLogicalDevice(), swapChain, &imageCount, swapChainImages.data());
-	}
-
-	void createImageViews()
-	{
-		swapChainImageViews.resize(swapChainImages.size());
-
-		//遍历交换链里的每一张图像，创建对应的ImageView
-		for (size_t i = 0; i < swapChainImages.size(); i++)
-		{
-			swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
-		}
-	}
 
 	void createRenderPass()
 	{
 
 		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = swapChainImageFormat;
+		colorAttachment.format = m_swapChain->getSwapChainImageFormat();
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		//开始渲染前清空颜色缓冲
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -465,14 +368,14 @@ private:
 		VkViewport viewport = {};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = (float)swapChainExtent.width;
-		viewport.height = (float)swapChainExtent.height;
+		viewport.width = (float)m_swapChain->getSwapChainExtent().width;
+		viewport.height = (float)m_swapChain->getSwapChainExtent().height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 
 		VkRect2D scissor = {};
 		scissor.offset = { 0, 0 };
-		scissor.extent = swapChainExtent;
+		scissor.extent = m_swapChain->getSwapChainExtent();
 
 		VkPipelineViewportStateCreateInfo viewportState = {};
 		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -580,33 +483,9 @@ private:
 		vkDestroyShaderModule(m_device->getLogicalDevice(), vertShaderModule, nullptr);
 	}
 
-	void createFramebuffers()
-	{
-		swapChainFramebuffers.resize(swapChainImageViews.size());
-		for (size_t i = 0; i < swapChainImageViews.size(); i++)
-		{
-			VkImageView attachments[] = {
-				swapChainImageViews[i]
-			};
-			VkFramebufferCreateInfo framebufferInfo = {};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = renderPass;
-			framebufferInfo.attachmentCount = 1;
-			framebufferInfo.pAttachments = attachments;
-			framebufferInfo.width = swapChainExtent.width;
-			framebufferInfo.height = swapChainExtent.height;
-			framebufferInfo.layers = 1;
-
-			if (vkCreateFramebuffer(m_device->getLogicalDevice(), &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to create framebuffer!");
-			}
-		}
-	}
-
 	void createCommandBuffers()
 	{
-		commandBuffers.resize(swapChainFramebuffers.size());
+		commandBuffers.resize(m_swapChain->getSwapChainFramebuffers().size());
 		
 		//从commandPool里面申请内存给commandBuffers
 		//有几个framebuffer就申请几个commandBuffer
@@ -636,9 +515,9 @@ private:
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			renderPassInfo.renderPass = renderPass;
-			renderPassInfo.framebuffer = swapChainFramebuffers[i];
+			renderPassInfo.framebuffer = m_swapChain->getSwapChainFramebuffers()[i];
 			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = swapChainExtent;
+			renderPassInfo.renderArea.extent = m_swapChain->getSwapChainExtent();
 			VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
 			renderPassInfo.clearValueCount = 1;
 			renderPassInfo.pClearValues = &clearColor;
@@ -667,7 +546,7 @@ private:
 
 	void createSyncObjects()
 	{
-		size_t n = swapChainFramebuffers.size();
+		size_t n = m_swapChain->getSwapChainFramebuffers().size();
 		imageAvailableSemaphores.resize(n);
 		renderFinishedSemaphores.resize(n);
 		inFlightFences.resize(n);
@@ -706,13 +585,15 @@ private:
 		}
 
 		vkDeviceWaitIdle(m_device->getLogicalDevice());
-
+		m_swapChain.reset();
 		cleanUpSwapChain();
-		createSwapChain();
-		createImageViews();
+
+		VkExtent2D newExtent = {width, height};
+		m_swapChain = std::make_unique<SwapChain>(*m_device, newExtent);
+		
 		createRenderPass();
 		createGraphicsPipeline();
-		createFramebuffers();
+		m_swapChain->createFramebuffers(renderPass);
 		createCommandBuffers();
 	}
 
@@ -779,13 +660,13 @@ private:
 		vkFreeMemory(m_device->getLogicalDevice(), stagingBufferMemory, nullptr);
 	}
 
-	VkImageView createImageView(VkImage image, VkFormat format)
+	void createTextureImageView()
 	{
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = image;
+		viewInfo.image = textureImage;
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = format;
+		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		viewInfo.subresourceRange.baseMipLevel = 0;
 		viewInfo.subresourceRange.levelCount = 1;
@@ -796,12 +677,7 @@ private:
 		{
 			throw std::runtime_error("failed to create texture image view!");
 		}
-		return imageView;
-	}
-
-	void createTextureImageView()
-	{
-		textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM);
+		textureImageView = imageView;
 	}
 
 	void createTextureSampler()

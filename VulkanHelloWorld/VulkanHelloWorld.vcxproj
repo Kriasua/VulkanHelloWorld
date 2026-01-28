@@ -472,6 +472,7 @@
     <ClInclude Include="src\Core\Devices.h" />
     <ClInclude Include="src\Description.h" />
     <ClInclude Include="src\fileManager.h" />
+    <ClInclude Include="src\Graphics\Swapchain.h" />
     <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
     <ClInclude Include="src\shaderManager.h" />
     <ClInclude Include="src\SwapChain.h" />
@@ -483,6 +484,7 @@
     <ClCompile Include="src\Core\Devices.cpp" />
     <ClCompile Include="src\Description.cpp" />
     <ClCompile Include="src\fileManager.cpp" />
+    <ClCompile Include="src\Graphics\Swapchain.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Physical&amp;LogicalDevice.cpp" />
     <ClCompile Include="src\shaderManager.cpp" />

@@ -55,7 +55,7 @@ void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory
 	
 }
 
-void Descriptor::createUniformBuffers(VkDevice device, VkPhysicalDevice physicalDevice, std::vector<VkImage>& swapChainImages, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDeviceMemory>& uniformBuffersMemory)
+void Descriptor::createUniformBuffers(VkDevice device, VkPhysicalDevice physicalDevice, const std::vector<VkImage>& swapChainImages, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDeviceMemory>& uniformBuffersMemory)
 {
 	size_t swapChainImagesSize = swapChainImages.size();
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
