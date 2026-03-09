@@ -14,8 +14,8 @@ public:
 	VkExtent2D getSwapChainExtent() const { return m_swapChainExtent; }
 	const std::vector<VkImage>& getSwapChainImages() const { return m_swapChainImages; }
 	const std::vector<VkImageView>& getSwapChainImageViews() const { return m_swapChainImageViews; }
-	const std::vector<VkFramebuffer>& getSwapChainFramebuffers() const { return m_swapChainFramebuffers; }
-	void createFramebuffers(VkRenderPass renderPass);
+	//const std::vector<VkFramebuffer>& getSwapChainFramebuffers() const { return m_swapChainFramebuffers; }
+	//void createFramebuffers(VkRenderPass renderPass);
 
 private:
 	Devices& m_device;
@@ -25,7 +25,7 @@ private:
 	VkExtent2D m_swapChainExtent;
 	std::vector<VkImage> m_swapChainImages;
 	std::vector<VkImageView> m_swapChainImageViews;
-	std::vector<VkFramebuffer> m_swapChainFramebuffers;
+	//std::vector<VkFramebuffer> m_swapChainFramebuffers;
 
 	void createSwapChain();
 	void createImageViews();

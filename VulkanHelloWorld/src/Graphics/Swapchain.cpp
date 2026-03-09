@@ -110,29 +110,29 @@ VkImageView SwapChain::createImageView(VkImage image, VkFormat format)
 	return imageView;
 }
 
-void SwapChain::createFramebuffers(VkRenderPass renderPass)
-{
-	m_swapChainFramebuffers.resize(m_swapChainImageViews.size());
-	for (size_t i = 0; i < m_swapChainImageViews.size(); i++)
-	{
-		VkImageView attachments[] = {
-			m_swapChainImageViews[i]
-		};
-		VkFramebufferCreateInfo framebufferInfo = {};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = m_swapChainExtent.width;
-		framebufferInfo.height = m_swapChainExtent.height;
-		framebufferInfo.layers = 1;
-
-		if (vkCreateFramebuffer(m_device.getLogicalDevice(), &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create framebuffer!");
-		}
-	}
-}
+//void SwapChain::createFramebuffers(VkRenderPass renderPass)
+//{
+//	m_swapChainFramebuffers.resize(m_swapChainImageViews.size());
+//	for (size_t i = 0; i < m_swapChainImageViews.size(); i++)
+//	{
+//		VkImageView attachments[] = {
+//			m_swapChainImageViews[i]
+//		};
+//		VkFramebufferCreateInfo framebufferInfo = {};
+//		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+//		framebufferInfo.renderPass = renderPass;
+//		framebufferInfo.attachmentCount = 1;
+//		framebufferInfo.pAttachments = attachments;
+//		framebufferInfo.width = m_swapChainExtent.width;
+//		framebufferInfo.height = m_swapChainExtent.height;
+//		framebufferInfo.layers = 1;
+//
+//		if (vkCreateFramebuffer(m_device.getLogicalDevice(), &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) != VK_SUCCESS)
+//		{
+//			throw std::runtime_error("failed to create framebuffer!");
+//		}
+//	}
+//}
 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 {
@@ -198,10 +198,10 @@ VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilit
 
 SwapChain::~SwapChain()
 {
-	for (const auto& framebuffer : m_swapChainFramebuffers)
-	{
-		vkDestroyFramebuffer(m_device.getLogicalDevice(), framebuffer, nullptr);
-	}
+	//for (const auto& framebuffer : m_swapChainFramebuffers)
+	//{
+	//	vkDestroyFramebuffer(m_device.getLogicalDevice(), framebuffer, nullptr);
+	//}
 
 	// 1. 先销毁 ImageViews (因为它们依赖于 SwapChain Images)
 	for (auto imageView : m_swapChainImageViews)

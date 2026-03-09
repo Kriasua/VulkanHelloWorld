@@ -11,18 +11,20 @@
 #include <stb_image.h>
 #include "Core/ValidationLayerAssist.h"
 #include "SwapChain.h"
-#include "fileManager.h"
-#include "shaderManager.h"
 #include <chrono>
 #include "Buffer.h"
 #include "Vertex.h"
 #include "Description.h"
 #include "Core/Devices.h"
 #include "Graphics/Swapchain.h"
+#include "Graphics/Shader.h"
+#include "Graphics/PipelineBuilder.h"
+#include "Graphics/RenderPass.h"
+#include "Graphics/Framebuffer.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class HelloTriangleApplication
 {
@@ -43,14 +45,14 @@ private:
 
 	std::unique_ptr<Devices> m_device;
 	std::unique_ptr<SwapChain> m_swapChain;
+	std::unique_ptr<PipelineLayout> m_pipelineLayout;
+	std::unique_ptr<Pipeline> m_pipeline;
+	std::unique_ptr<RenderPass> m_mainRenderPass;
 	VkExtent2D windowExtent;
-	VkRenderPass renderPass;
 
 	VkDescriptorSetLayout descriptorSetLayout;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapChainFramebuffers;
-
+	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	VkSemaphore imageAvailableSemaphore;
@@ -95,7 +97,7 @@ private:
 		createRenderPass();
 		Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout);
 		createGraphicsPipeline();
-		m_swapChain->createFramebuffers(renderPass);
+		createSwapchainFrameBuffers();
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
@@ -149,14 +151,21 @@ private:
 	void cleanUpSwapChain()
 	{
 		vkFreeCommandBuffers(m_device->getLogicalDevice(), m_device->getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-		vkDestroyPipeline(m_device->getLogicalDevice(), graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(m_device->getLogicalDevice(), pipelineLayout, nullptr);
-		vkDestroyRenderPass(m_device->getLogicalDevice(), renderPass, nullptr);
+		m_framebuffers.clear();
+		if (m_mainRenderPass) {
+			m_mainRenderPass.reset();
+		}
 	}
 
 	void cleanUp()
 	{
+		vkDeviceWaitIdle(m_device->getLogicalDevice());
 		cleanUpSwapChain();
+		for (size_t i = 0; i < uniformBuffers.size(); i++) {
+			vkDestroyBuffer(m_device->getLogicalDevice(), uniformBuffers[i], nullptr);
+			vkFreeMemory(m_device->getLogicalDevice(), uniformBuffersMemory[i], nullptr);
+		}
+
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
 		vkDestroyImageView(m_device->getLogicalDevice(), textureImageView, nullptr);
 		vkDestroyImage(m_device->getLogicalDevice(), textureImage, nullptr);
@@ -175,7 +184,9 @@ private:
 			vkDestroySemaphore(m_device->getLogicalDevice(), imageAvailableSemaphores[i], nullptr);
 			vkDestroyFence(m_device->getLogicalDevice(), inFlightFences[i], nullptr);
 		}
-
+		m_pipeline.reset();
+		m_pipelineLayout.reset();
+		m_swapChain.reset();
 		m_device.reset();
 		glfwDestroyWindow(window);
 		glfwTerminate();
@@ -192,7 +203,6 @@ private:
 
 		vkWaitForFences(m_device->getLogicalDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 		
-
 		uint32_t imageIndex;
 		VkResult result = vkAcquireNextImageKHR(m_device->getLogicalDevice(), m_swapChain->getSwapChain(), std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
@@ -251,65 +261,35 @@ private:
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-
 	void createRenderPass()
 	{
-
-		VkAttachmentDescription colorAttachment = {};
+		m_mainRenderPass = std::make_unique<RenderPass>(m_device->getLogicalDevice());
+		AttachmentConfig colorAttachment = {};
 		colorAttachment.format = m_swapChain->getSwapChainImageFormat();
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		//开始渲染前清空颜色缓冲
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		//渲染结束后将数据存储到内存，以便后续读写
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
-		//模板缓冲我们暂时不需要，所以设置为不关心
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-		//显卡为了优化性能，图片在内存里的“排列方式”是会变的。你需要告诉 Vulkan 图片当前是什么状态。
-		//开始画之前，图片处于什么状态？解释：UNDEFINED 意思是“我不在乎它之前是什么样，反正我马上要由 loadOp 执行 CLEAR 清空它”。
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		//画完之后，图片处于什么状态？解释：PRESENT_SRC_KHR 意思是“这就准备拿去给交换链（Swapchain）显示了”。这是专门给显示器读取的优化格式。
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // 渲染完用于显示
 
+		m_mainRenderPass->addAttachment(colorAttachment);
+		// 3. 配置子流程 (对应原来的 VkSubpassDescription 和 Reference)
+		SubpassConfig subpass = {};
+		// 我们刚才加的颜色附件索引是 0，告诉子流程往 0 号坑位画
+		subpass.colorAttachmentIndices = { 0 };
+		// depthAttachmentIndex 默认是 -1，说明目前不需要深度测试
 
-		VkAttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		m_mainRenderPass->addSubpass(subpass);
 
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-
-		//设置子流程依赖
-		VkSubpassDependency dependency = {};
+		DependencyConfig dependency = {};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
-
 		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.srcAccessMask = 0;
-
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
-
-		if (vkCreateRenderPass(m_device->getLogicalDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create render pass!");
-		}
-
-	
+		m_mainRenderPass->addDependency(dependency);
+		m_mainRenderPass->create();
 	}
 
 	void createGraphicsPipeline()
@@ -318,117 +298,35 @@ private:
 		////////////////////// 图形管线可编程阶段的配置(shaders) /////////////////////////////
 		/////////////////////////////////////////////////////////////////////////////////////
 
-		//加载编译好的SPIR-V着色器代码，并创建对应的VkShaderModule
-		std::vector<char> vertShaderCode = fileManager::readFile("shader/vert.spv");
-		std::vector<char> fragShaderCode = fileManager::readFile("shader/frag.spv");
-		VkShaderModule vertShaderModule = shaderManager::createShaderModule(m_device->getLogicalDevice(), vertShaderCode);
-		VkShaderModule fragShaderModule = shaderManager::createShaderModule(m_device->getLogicalDevice(), fragShaderCode);
-
-		//设置vertex shader的阶段信息
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = vertShaderModule;
-		vertShaderStageInfo.pName = "main";
-		vertShaderStageInfo.pSpecializationInfo = nullptr;
-
-		//设置fragment shader的阶段信息
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = fragShaderModule;
-		fragShaderStageInfo.pName = "main";
-		fragShaderStageInfo.pSpecializationInfo = nullptr;
-
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
-
+		Shader vertShader(m_device->getLogicalDevice(), "shader/vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		Shader fragShader(m_device->getLogicalDevice(), "shader/frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { vertShader.getStageInfo(), fragShader.getStageInfo() };
+		
 		/////////////////////////////////////////////////////////////////////////////////////
 		////////////////////// 图形管线其他阶段的配置 (固定功能阶段) /////////////////////////////
 		/////////////////////////////////////////////////////////////////////////////////////
 
 		
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		VertexLayout layout;
 		layout.push<glm::vec2>();
 		layout.push<glm::vec3>();
 		layout.push<glm::vec2>();
-		auto bindingDescription = layout.getBindingDescription();
-		auto attributeDescriptions = layout.getAttributeDescriptions();
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 1;
-		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
-		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		inputAssembly.primitiveRestartEnable = VK_FALSE;
+		PipelineBuilder builder;
+		builder.shaderStages.push_back(vertShader.getStageInfo());
+		builder.shaderStages.push_back(fragShader.getStageInfo());
+		builder.setVertexInput(layout.getBindingDescription(), layout.getAttributeDescriptions());
+		builder.viewport = { 0.0f,0.0f,(float)m_swapChain->getSwapChainExtent().width ,(float)m_swapChain->getSwapChainExtent().height ,0.0f,1.0f };
+		builder.scissor = { {0,0}, m_swapChain->getSwapChainExtent() };
 
-		VkViewport viewport = {};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = (float)m_swapChain->getSwapChainExtent().width;
-		viewport.height = (float)m_swapChain->getSwapChainExtent().height;
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
+		descriptorSetLayouts.clear();
+		descriptorSetLayouts.push_back(descriptorSetLayout);
+		m_pipelineLayout = std::make_unique<PipelineLayout>(m_device->getLogicalDevice(), descriptorSetLayouts);
+		builder.setPipelineLayout(m_pipelineLayout->getHandle());
+		
+		VkPipeline rawPipeline = builder.build(m_device->getLogicalDevice(), m_mainRenderPass->getHandle());
+		m_pipeline = std::make_unique<Pipeline>(m_device->getLogicalDevice(), rawPipeline);
 
-		VkRect2D scissor = {};
-		scissor.offset = { 0, 0 };
-		scissor.extent = m_swapChain->getSwapChainExtent();
-
-		VkPipelineViewportStateCreateInfo viewportState = {};
-		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportState.viewportCount = 1;
-		viewportState.pViewports = &viewport;
-		viewportState.scissorCount = 1;
-		viewportState.pScissors = &scissor;
-
-		//光栅化配置
-		VkPipelineRasterizationStateCreateInfo rasterizer = {};
-		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		//false是标准做法。 true的话会把所有超出近远平面的片段都挤压为近平面上的值，通常用于阴影贴图，需要开启GPU特性
-		rasterizer.depthClampEnable = VK_FALSE;	
-		//true时几何体处理完顶点之后，直接丢掉.当只想利用 GPU 的顶点着色器做数学计算（Transform Feedback），或者只想要深度图不需要颜色时用。
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
-		//三角形填充方式，这里是填满（标准做法）
-		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizer.lineWidth = 1.0f;
-		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		//正面判定，三角形顶点按顺时针方向排列为正面
-		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterizer.depthBiasEnable = VK_FALSE;
-		rasterizer.depthBiasConstantFactor = 0.0f;
-		rasterizer.depthBiasClamp = 0.0f;
-		rasterizer.depthBiasSlopeFactor = 0.0f;
-
-
-
-
-		//多重采样配置，默认关闭，后续再详细介绍
-		VkPipelineMultisampleStateCreateInfo multisampling = {};
-		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisampling.minSampleShading = 1.0f;
-		multisampling.pSampleMask = nullptr;
-		multisampling.alphaToCoverageEnable = VK_FALSE;
-		multisampling.alphaToOneEnable = VK_FALSE;
-
-		//设置颜色混合，只有在渲染透明物体时才会用到，当前先关闭
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_FALSE;
-		VkPipelineColorBlendStateCreateInfo colorBlending{};
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &colorBlendAttachment;
-		colorBlending.blendConstants[0] = 0.0f;
-		colorBlending.blendConstants[1] = 0.0f;
-		colorBlending.blendConstants[2] = 0.0f;
-		colorBlending.blendConstants[3] = 0.0f;
 
 		//动态状态配置，我们把视口和裁剪矩形设置为动态的
 		//一旦设置为动态状态，就必须在命令缓冲录制时通过vkCmdSetViewport和vkCmdSetScissor来重新设置它们，否则会报错
@@ -441,51 +339,26 @@ private:
 		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 		dynamicState.pDynamicStates = dynamicStates.data();
 
-		//通常用于给shader使用的uniform变量
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	}
 
+	void createSwapchainFrameBuffers()
+	{
+		const std::vector<VkImageView>& swapchainImageViews = m_swapChain->getSwapChainImageViews();
+		m_framebuffers.clear();
+		m_framebuffers.reserve(swapchainImageViews.size());
 
-		if (vkCreatePipelineLayout(m_device->getLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+		for (size_t i = 0; i < swapchainImageViews.size(); i++)
 		{
-			throw std::runtime_error("failed to create pipeline layout!");
+			std::vector<VkImageView> attachs = { swapchainImageViews[i] };
+
+			m_framebuffers.push_back(std::make_unique<Framebuffer>(m_device->getLogicalDevice(),
+				m_mainRenderPass->getHandle(), m_swapChain->getSwapChainExtent(), attachs));
 		}
-
-
-		VkGraphicsPipelineCreateInfo pipelineInfo = {};
-		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStages.data();
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &inputAssembly;
-		pipelineInfo.pViewportState = &viewportState;
-		pipelineInfo.pRasterizationState = &rasterizer;
-		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = nullptr;
-		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = nullptr;
-		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = renderPass;
-		pipelineInfo.subpass = 0;
-		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-		pipelineInfo.basePipelineIndex = -1;
-		if (vkCreateGraphicsPipelines(m_device->getLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create graphics pipeline!");
-		}
-
-		//销毁着色器模块
-		vkDestroyShaderModule(m_device->getLogicalDevice(), fragShaderModule, nullptr);
-		vkDestroyShaderModule(m_device->getLogicalDevice(), vertShaderModule, nullptr);
 	}
 
 	void createCommandBuffers()
 	{
-		commandBuffers.resize(m_swapChain->getSwapChainFramebuffers().size());
+		commandBuffers.resize(m_framebuffers.size());
 		
 		//从commandPool里面申请内存给commandBuffers
 		//有几个framebuffer就申请几个commandBuffer
@@ -514,8 +387,8 @@ private:
 
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = renderPass;
-			renderPassInfo.framebuffer = m_swapChain->getSwapChainFramebuffers()[i];
+			renderPassInfo.renderPass = m_mainRenderPass->getHandle();;
+			renderPassInfo.framebuffer = m_framebuffers[i]->getHandle();
 			renderPassInfo.renderArea.offset = { 0, 0 };
 			renderPassInfo.renderArea.extent = m_swapChain->getSwapChainExtent();
 			VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
@@ -524,7 +397,7 @@ private:
 
 			//开始录制
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
 
 			std::vector<VkBuffer> vertexbuffers = { vertexBuffer };
 			std::vector<VkDeviceSize> offsets = { 0 };
@@ -532,7 +405,7 @@ private:
 			
 			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 			
-			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout->getHandle(), 0, 1, &descriptorSets[i], 0, nullptr);
 			
 			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -546,7 +419,7 @@ private:
 
 	void createSyncObjects()
 	{
-		size_t n = m_swapChain->getSwapChainFramebuffers().size();
+		size_t n = m_framebuffers.size();
 		imageAvailableSemaphores.resize(n);
 		renderFinishedSemaphores.resize(n);
 		inFlightFences.resize(n);
@@ -593,7 +466,7 @@ private:
 		
 		createRenderPass();
 		createGraphicsPipeline();
-		m_swapChain->createFramebuffers(renderPass);
+		createSwapchainFrameBuffers();
 		createCommandBuffers();
 	}
 

@@ -993,12 +993,6 @@
     <ClInclude Include="src\SwapChain.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\fileManager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\shaderManager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="src\Buffer.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -1017,6 +1011,24 @@
     <ClInclude Include="src\Graphics\Swapchain.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="dependencies\vulkan\vulkan.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Shader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\PipelineBuilder.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\RenderPass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Framebuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Texture.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -1029,12 +1041,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\SwapChain.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fileManager.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\shaderManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Buffer.cpp">
@@ -1050,6 +1056,21 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Swapchain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Shader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\PipelineBuilder.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\RenderPass.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Framebuffer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Texture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
