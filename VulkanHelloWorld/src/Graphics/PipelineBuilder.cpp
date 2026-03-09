@@ -45,6 +45,10 @@ PipelineBuilder::PipelineBuilder()
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
 
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = static_cast<uint32_t>(m_dynamicStates.size());
+	dynamicState.pDynamicStates = m_dynamicStates.data();
+
 }
 
 
@@ -66,9 +70,9 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass pass)
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr;
+	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
+	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = pass;
 	pipelineInfo.subpass = 0;
@@ -97,6 +101,26 @@ void PipelineBuilder::setVertexInput(const VkVertexInputBindingDescription& bind
 
 
 
+
+void PipelineBuilder::enableDepthTest()
+{
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+	// 1. 开启深度测试：每次画像素时，都要拿当前的深度和深度缓冲里的值做比较
+	depthStencil.depthTestEnable = VK_TRUE;
+
+	// 2. 开启深度写入：如果测试通过了（它在最前面），就把它自己的深度写进缓冲里，挡住后面的
+	depthStencil.depthWriteEnable = VK_TRUE;
+
+	// 3. 比较运算符：VK_COMPARE_OP_LESS 表示“深度值更小（离相机更近）的优先”
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+
+	// 4. 下面这些高级特性暂时不用，关掉
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.minDepthBounds = 0.0f; // Optional
+	depthStencil.maxDepthBounds = 1.0f; // Optional
+	depthStencil.stencilTestEnable = VK_FALSE; // 模板测试也先关着
+}
 
 PipelineLayout::PipelineLayout(const VkDevice device, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
 	:m_device(device)

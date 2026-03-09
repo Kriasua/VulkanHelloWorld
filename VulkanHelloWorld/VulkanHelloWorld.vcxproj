@@ -487,6 +487,7 @@
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
     <ClInclude Include="dependencies\stb_image.h" />
+    <ClInclude Include="dependencies\tiny_obj_loader.h" />
     <ClInclude Include="dependencies\vulkan\vulkan.h" />
     <ClInclude Include="src\Core\Devices.h" />
     <ClInclude Include="src\Description.h" />
@@ -496,8 +497,6 @@
     <ClInclude Include="src\Graphics\Shader.h" />
     <ClInclude Include="src\Graphics\Swapchain.h" />
     <ClInclude Include="src\Graphics\Texture.h" />
-    <ClInclude Include="src\Physical&amp;LogicalDevice.h" />
-    <ClInclude Include="src\SwapChain.h" />
     <ClInclude Include="src\Core\ValidationLayerAssist.h" />
     <ClInclude Include="src\Buffer.h" />
     <ClInclude Include="src\Vertex.h" />
@@ -512,8 +511,6 @@
     <ClCompile Include="src\Graphics\Swapchain.cpp" />
     <ClCompile Include="src\Graphics\Texture.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Physical&amp;LogicalDevice.cpp" />
-    <ClCompile Include="src\SwapChain.cpp" />
     <ClCompile Include="src\Core\ValidationLayerAssist.cpp" />
     <ClCompile Include="src\Buffer.cpp" />
     <ClCompile Include="src\Vertex.cpp" />

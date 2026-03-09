@@ -15,13 +15,12 @@ public:
 	VkPipelineMultisampleStateCreateInfo multisampling;
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
 	VkPipelineColorBlendStateCreateInfo colorBlending;
-	VkPipelineDynamicStateCreateInfo dynamicState;
 	VkGraphicsPipelineCreateInfo pipelineInfo;
-	VkPipelineDepthStencilStateCreateInfo depthStencil;
 	VkPipelineLayout pipelineLayout;
 	VkVertexInputBindingDescription _bindingDescription{};
 	std::vector<VkVertexInputAttributeDescription> _attributeDescriptions{};
-
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	VkPipelineDynamicStateCreateInfo dynamicState{};
 	//////////////////////////////////////////////////////////////////////////////
 
 	PipelineBuilder();
@@ -34,8 +33,15 @@ public:
 		return *this;
 	}
 
+	void enableDepthTest();
+
+
 private:
 	VkExtent2D m_SwapChainExtent;
+	std::vector<VkDynamicState> m_dynamicStates = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+	};
 };
 
 class PipelineLayout

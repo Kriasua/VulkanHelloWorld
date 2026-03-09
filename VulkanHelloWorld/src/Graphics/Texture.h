@@ -1,6 +1,8 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <stdexcept>
+#include <string>
+#include <memory>
 #include "../Core/Devices.h"
 
 class Texture
@@ -23,6 +25,8 @@ public:
 	const VkImageView& getImageView() const { return m_imageView; }
 	const VkFormat& getFormat() const { return m_format; }
 
+	static std::unique_ptr<Texture> loadFromFile(Devices& device, const std::string& path);
+	static std::unique_ptr<Texture> createDepthTexture(Devices& device, uint32_t width, uint32_t height);
 private:
 	Devices& m_device; // 引用Devices 类，方便获取物理和逻辑设备
 	VkImage m_image = VK_NULL_HANDLE;
@@ -30,8 +34,8 @@ private:
 	VkImageView m_imageView = VK_NULL_HANDLE;
 	VkFormat m_format;
 
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	void createImage(uint32_t width, uint32_t height, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	void createImageView(VkImageAspectFlags aspectFlags);
-
+	void transitionImageLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };

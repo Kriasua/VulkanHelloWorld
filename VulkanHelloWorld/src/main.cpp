@@ -1,6 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 #include <iostream>
 #include <stdexcept>
 #include <functional>
@@ -10,7 +12,6 @@
 #include <set>
 #include <stb_image.h>
 #include "Core/ValidationLayerAssist.h"
-#include "SwapChain.h"
 #include <chrono>
 #include "Buffer.h"
 #include "Vertex.h"
@@ -21,9 +22,10 @@
 #include "Graphics/PipelineBuilder.h"
 #include "Graphics/RenderPass.h"
 #include "Graphics/Framebuffer.h"
+#include "Graphics/Texture.h"
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+const uint32_t WIDTH = 1920;
+const uint32_t HEIGHT = 1080;
 const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class HelloTriangleApplication
@@ -75,10 +77,14 @@ private:
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-	VkImageView textureImageView;
 	VkSampler textureSampler;
+
+	std::unique_ptr<Texture> m_yoasobiTex;
+	std::unique_ptr<Texture> m_vikingRoomTex;
+	std::unique_ptr<Texture> m_depthTex;
+
+	std::vector<Vertex> m_vertices;
+	std::vector<uint32_t> m_indices;
 
 	bool framebufferResized = false;
 
@@ -97,15 +103,19 @@ private:
 		createRenderPass();
 		Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout);
 		createGraphicsPipeline();
+		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
 		createSwapchainFrameBuffers();
-		createTextureImage();
-		createTextureImageView();
+		m_vikingRoomTex = Texture::loadFromFile(*m_device, "images/viking_room.png");
+		m_yoasobiTex = Texture::loadFromFile(*m_device, "images/yoasobi.jpg");
 		createTextureSampler();
-		VertexBuffer::createVertexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), vertexBuffer, vertexBufferMemory);
-		IndexBuffer::createIndexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), indexBuffer, indexBufferMemory);
+
+		loadModel();
+
+		VertexBuffer::createVertexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), vertexBuffer, vertexBufferMemory, m_vertices);
+		IndexBuffer::createIndexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), indexBuffer, indexBufferMemory, m_indices);
 		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), m_swapChain->getSwapChainImages(), uniformBuffers, uniformBuffersMemory);
 		Descriptor::createDescriptorPool(m_device->getLogicalDevice(), m_swapChain->getSwapChainImages().size(), descriptorPool);
-		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, descriptorPool, m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, textureImageView, textureSampler);
+		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, descriptorPool, m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, m_vikingRoomTex->getImageView(), textureSampler);
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -149,9 +159,10 @@ private:
 	}
 
 	void cleanUpSwapChain()
-	{
+	{	
 		vkFreeCommandBuffers(m_device->getLogicalDevice(), m_device->getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		m_framebuffers.clear();
+		m_depthTex.reset();
 		if (m_mainRenderPass) {
 			m_mainRenderPass.reset();
 		}
@@ -167,9 +178,8 @@ private:
 		}
 
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
-		vkDestroyImageView(m_device->getLogicalDevice(), textureImageView, nullptr);
-		vkDestroyImage(m_device->getLogicalDevice(), textureImage, nullptr);
-		vkFreeMemory(m_device->getLogicalDevice(), textureImageMemory, nullptr);
+		m_yoasobiTex.reset();
+		m_vikingRoomTex.reset();
 		vkDestroyDescriptorPool(m_device->getLogicalDevice(), descriptorPool, nullptr);
 		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
 		vkDestroyBuffer(m_device->getLogicalDevice(), indexBuffer, nullptr);
@@ -270,23 +280,30 @@ private:
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // 渲染完用于显示
-
 		m_mainRenderPass->addAttachment(colorAttachment);
+
+		AttachmentConfig depthAttachment = {};
+		depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // 渲染完深度数据就可以丢弃了
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		m_mainRenderPass->addAttachment(depthAttachment);
+
 		// 3. 配置子流程 (对应原来的 VkSubpassDescription 和 Reference)
 		SubpassConfig subpass = {};
 		// 我们刚才加的颜色附件索引是 0，告诉子流程往 0 号坑位画
 		subpass.colorAttachmentIndices = { 0 };
-		// depthAttachmentIndex 默认是 -1，说明目前不需要深度测试
-
+		subpass.depthAttachmentIndex = 1;
 		m_mainRenderPass->addSubpass(subpass);
 
 		DependencyConfig dependency = {};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
 		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 		m_mainRenderPass->addDependency(dependency);
 		m_mainRenderPass->create();
@@ -308,9 +325,10 @@ private:
 
 		
 		VertexLayout layout;
-		layout.push<glm::vec2>();
-		layout.push<glm::vec3>();
-		layout.push<glm::vec2>();
+		layout.push<glm::vec3>();//位置
+		layout.push<glm::vec3>();//颜色
+		layout.push<glm::vec2>();//UV
+		layout.push<glm::vec3>();//法线
 
 		PipelineBuilder builder;
 		builder.shaderStages.push_back(vertShader.getStageInfo());
@@ -318,6 +336,7 @@ private:
 		builder.setVertexInput(layout.getBindingDescription(), layout.getAttributeDescriptions());
 		builder.viewport = { 0.0f,0.0f,(float)m_swapChain->getSwapChainExtent().width ,(float)m_swapChain->getSwapChainExtent().height ,0.0f,1.0f };
 		builder.scissor = { {0,0}, m_swapChain->getSwapChainExtent() };
+		builder.enableDepthTest();
 
 		descriptorSetLayouts.clear();
 		descriptorSetLayouts.push_back(descriptorSetLayout);
@@ -326,18 +345,6 @@ private:
 		
 		VkPipeline rawPipeline = builder.build(m_device->getLogicalDevice(), m_mainRenderPass->getHandle());
 		m_pipeline = std::make_unique<Pipeline>(m_device->getLogicalDevice(), rawPipeline);
-
-
-		//动态状态配置，我们把视口和裁剪矩形设置为动态的
-		//一旦设置为动态状态，就必须在命令缓冲录制时通过vkCmdSetViewport和vkCmdSetScissor来重新设置它们，否则会报错
-		std::vector<VkDynamicState> dynamicStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
-		};
-		VkPipelineDynamicStateCreateInfo dynamicState{};
-		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-		dynamicState.pDynamicStates = dynamicStates.data();
 
 	}
 
@@ -349,7 +356,7 @@ private:
 
 		for (size_t i = 0; i < swapchainImageViews.size(); i++)
 		{
-			std::vector<VkImageView> attachs = { swapchainImageViews[i] };
+			std::vector<VkImageView> attachs = { swapchainImageViews[i], m_depthTex->getImageView()};
 
 			m_framebuffers.push_back(std::make_unique<Framebuffer>(m_device->getLogicalDevice(),
 				m_mainRenderPass->getHandle(), m_swapChain->getSwapChainExtent(), attachs));
@@ -391,23 +398,43 @@ private:
 			renderPassInfo.framebuffer = m_framebuffers[i]->getHandle();
 			renderPassInfo.renderArea.offset = { 0, 0 };
 			renderPassInfo.renderArea.extent = m_swapChain->getSwapChainExtent();
-			VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
-			renderPassInfo.clearValueCount = 1;
-			renderPassInfo.pClearValues = &clearColor;
+
+			std::array<VkClearValue, 2> clearValues{};
+			clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+			clearValues[1].depthStencil = { 1.0f,0 };
+
+			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+			renderPassInfo.pClearValues = clearValues.data();
 
 			//开始录制
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
 
+			// 配置并设置动态视口 (Viewport)
+			VkViewport viewport{};
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewport.width = static_cast<float>(m_swapChain->getSwapChainExtent().width);
+			viewport.height = static_cast<float>(m_swapChain->getSwapChainExtent().height);
+			viewport.minDepth = 0.0f; // 深度范围：近平面
+			viewport.maxDepth = 1.0f; // 深度范围：远平面
+			vkCmdSetViewport(commandBuffers[i], 0, 1, &viewport);
+
+			// 配置并设置动态裁剪矩形 (Scissor)
+			VkRect2D scissor{};
+			scissor.offset = { 0, 0 };
+			scissor.extent = m_swapChain->getSwapChainExtent();
+			vkCmdSetScissor(commandBuffers[i], 0, 1, &scissor);
+
 			std::vector<VkBuffer> vertexbuffers = { vertexBuffer };
 			std::vector<VkDeviceSize> offsets = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexbuffers.data(), offsets.data());
 			
-			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 			
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout->getHandle(), 0, 1, &descriptorSets[i], 0, nullptr);
 			
-			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(m_indices.size()), 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 			{
@@ -466,91 +493,9 @@ private:
 		
 		createRenderPass();
 		createGraphicsPipeline();
+		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
 		createSwapchainFrameBuffers();
 		createCommandBuffers();
-	}
-
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
-	{
-		VkImageCreateInfo imageInfo = {};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = width;
-		imageInfo.extent.height = height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = format;
-		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		if (vkCreateImage(m_device->getLogicalDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create image!");
-		}
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(m_device->getLogicalDevice(), image, &memRequirements);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = Buffer::findMemoryType(m_device->getPhysicalDevice(), memRequirements.memoryTypeBits, properties);
-		if (vkAllocateMemory(m_device->getLogicalDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to allocate image memory!");
-		}
-		vkBindImageMemory(m_device->getLogicalDevice(), image, imageMemory, 0);
-	}
-
-	void createTextureImage()
-	{
-		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("images/yoasobi.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-
-		VkDeviceSize imageSize = texWidth * texHeight * 4;
-		if(!pixels)
-		{
-			throw std::runtime_error("failed to load texture image!");
-		}
-
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		Buffer::createBuffer(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-		void* data;
-		vkMapMemory(m_device->getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(m_device->getLogicalDevice(), stagingBufferMemory);
-		stbi_image_free(pixels);
-
-		createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		Buffer::copyBufferToImage(m_device->getLogicalDevice(), m_device->getCommandPool(), m_device->getGraphicsQueue(), stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		vkDestroyBuffer(m_device->getLogicalDevice(), stagingBuffer, nullptr);
-		vkFreeMemory(m_device->getLogicalDevice(), stagingBufferMemory, nullptr);
-	}
-
-	void createTextureImageView()
-	{
-		VkImageViewCreateInfo viewInfo = {};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = textureImage;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-		VkImageView imageView;
-		if (vkCreateImageView(m_device->getLogicalDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create texture image view!");
-		}
-		textureImageView = imageView;
 	}
 
 	void createTextureSampler()
@@ -578,57 +523,65 @@ private:
 		}
 	}
 
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	void loadModel()
 	{
-		VkCommandBuffer commandBuffer = CommandBuffer::beginSingleTimeCommands(m_device->getLogicalDevice(), m_device->getCommandPool());
-		VkImageMemoryBarrier barrier = {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = oldLayout;
-		barrier.newLayout = newLayout;
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+		std::string warn, err;
 
-		//这里可以传递队列族所有权，但VK_QUEUE_FAMILY_IGNORED表示不做处理
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = image;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.srcAccessMask = 0; // TODO
-		barrier.dstAccessMask = 0; // TODO
-
-		VkPipelineStageFlags sourceStage;
-		VkPipelineStageFlags destinationStage;
-		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-		{
-			barrier.srcAccessMask = 0;
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		}
-		else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		{
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		}
-		else
-		{
-			throw std::invalid_argument("unsupported layout transition!");
+		// 假设你在项目根目录下建了一个 models 文件夹，里面放了一个 3D 模型
+		// 你可以去网上随便下载一个 .obj 模型（最好带贴图的）
+		//std::string modelPath = "models/stanfordBunny/stanford-bunny.obj";
+		std::string modelPath = "models/VikingRoom/viking_room.obj";
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())) {
+			throw std::runtime_error(warn + err);
 		}
 
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			sourceStage, destinationStage,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier
-		);
+		// 核心优化：利用我们之前写的哈希黑魔法，极速剔除重复顶点
+		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
-		CommandBuffer::endSingleTimeCommands(m_device->getLogicalDevice(), m_device->getCommandPool(), m_device->getGraphicsQueue(), commandBuffer);
+		for (const auto& shape : shapes) {
+			for (const auto& index : shape.mesh.indices) {
+				Vertex vertex{};
+
+				// 1. 抓取位置 (XYZ)
+				vertex.pos = {
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2]
+				};
+
+				// 2. 抓取 UV 坐标 (注意：Vulkan 的 V 轴和 OBJ 格式是上下颠倒的！)
+				if (index.texcoord_index >= 0) {
+					vertex.texCoord = {
+						attrib.texcoords[2 * index.texcoord_index + 0],
+						1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+					};
+				}
+
+				// 3. 抓取法线 (后续写光照和描边全靠它)
+				if (index.normal_index >= 0) {
+					vertex.normal = {
+						attrib.normals[3 * index.normal_index + 0],
+						attrib.normals[3 * index.normal_index + 1],
+						attrib.normals[3 * index.normal_index + 2]
+					};
+				}
+
+				// 4. 颜色 (如果模型没带顶点颜色，我们就强行塞个纯白色)
+				vertex.color = { 1.0f, 1.0f, 1.0f };
+
+				// 5. 哈希去重校验
+				if (uniqueVertices.count(vertex) == 0) {
+					uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
+					m_vertices.push_back(vertex);
+				}
+
+				// 6. 填入索引数组
+				m_indices.push_back(uniqueVertices[vertex]);
+			}
+		}
 	}
 };
 

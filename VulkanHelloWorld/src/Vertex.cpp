@@ -2,7 +2,9 @@
 #include "Buffer.h"
 #include <stdexcept>
 
-void VertexBuffer::createVertexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory)
+void VertexBuffer::createVertexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, 
+	VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& vertexBuffer, 
+	VkDeviceMemory& vertexBufferMemory, std::vector<Vertex>& vertices)
 {
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -31,7 +33,10 @@ void VertexBuffer::createVertexBuffer(VkCommandPool commandPool, VkQueue graphic
 VkVertexInputBindingDescription VertexLayout::getBindingDescription()
 {
 	VkVertexInputBindingDescription bindingDescription{};
+	//绑定几号的顶点缓冲？
 	bindingDescription.binding = 0;
+
+	//一个顶点有多大？
 	bindingDescription.stride = m_stride;
 	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	return bindingDescription;
@@ -44,7 +49,9 @@ std::vector<VkVertexInputAttributeDescription> VertexLayout::getAttributeDescrip
 
 
 
-void IndexBuffer::createIndexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory)
+void IndexBuffer::createIndexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, 
+	VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& indexBuffer, 
+	VkDeviceMemory& indexBufferMemory, std::vector<uint32_t>& indices)
 {
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 

@@ -1,5 +1,6 @@
 #include "Description.h"
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
@@ -42,10 +43,11 @@ void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory
 
 	UniformBufferObject ubo{};
 	
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * 0.5f * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::scale(ubo.model, glm::vec3(0.5f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(20.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-	ubo.proj[1][1] *= -1; 
+	ubo.proj[1][1] *= -1; //vulkan和opengl的Y轴反过来，所以需要乘-1
 	ubo.time = time;
 
 	void* data;
