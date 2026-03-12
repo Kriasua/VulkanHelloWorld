@@ -1,9 +1,6 @@
 #include "Buffer.h"
 #include <stdexcept>
 
-
-
-
 void Buffer::createBuffer(VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 {
 	//´´½¨buffer

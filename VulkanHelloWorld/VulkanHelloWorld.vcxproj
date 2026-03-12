@@ -491,7 +491,10 @@
     <ClInclude Include="dependencies\vulkan\vulkan.h" />
     <ClInclude Include="src\Core\Devices.h" />
     <ClInclude Include="src\Description.h" />
+    <ClInclude Include="src\Graphics\Camera.h" />
     <ClInclude Include="src\Graphics\Framebuffer.h" />
+    <ClInclude Include="src\Graphics\Material.h" />
+    <ClInclude Include="src\Graphics\Model.h" />
     <ClInclude Include="src\Graphics\PipelineBuilder.h" />
     <ClInclude Include="src\Graphics\RenderPass.h" />
     <ClInclude Include="src\Graphics\Shader.h" />
@@ -505,6 +508,8 @@
     <ClCompile Include="src\Core\Devices.cpp" />
     <ClCompile Include="src\Description.cpp" />
     <ClCompile Include="src\Graphics\Framebuffer.cpp" />
+    <ClCompile Include="src\Graphics\Material.cpp" />
+    <ClCompile Include="src\Graphics\Model.cpp" />
     <ClCompile Include="src\Graphics\PipelineBuilder.cpp" />
     <ClCompile Include="src\Graphics\RenderPass.cpp" />
     <ClCompile Include="src\Graphics\Shader.cpp" />

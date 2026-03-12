@@ -23,9 +23,11 @@
 #include "Graphics/RenderPass.h"
 #include "Graphics/Framebuffer.h"
 #include "Graphics/Texture.h"
+#include "Graphics/Camera.h"
+#include "Graphics/Model.h"
 
-const uint32_t WIDTH = 1920;
-const uint32_t HEIGHT = 1080;
+const uint32_t WIDTH = 2560;
+const uint32_t HEIGHT = 1440;
 const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class HelloTriangleApplication
@@ -65,16 +67,10 @@ private:
 	std::vector<VkFence> inFlightFences;
 	size_t currentFrame = 0;
 
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-	
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
-	VkDescriptorPool descriptorPool;
+	//VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	VkSampler textureSampler;
@@ -82,9 +78,18 @@ private:
 	std::unique_ptr<Texture> m_yoasobiTex;
 	std::unique_ptr<Texture> m_vikingRoomTex;
 	std::unique_ptr<Texture> m_depthTex;
+	std::unique_ptr<Model> m_vikingRoom;
 
-	std::vector<Vertex> m_vertices;
-	std::vector<uint32_t> m_indices;
+	Camera m_camera{};
+	float deltaTime;
+	float lastFrame;
+
+	// 追踪鼠标
+	bool firstMouse = true;//防止鼠标刚移入窗口时计算错误
+
+	//默认在窗口中心
+	float lastX = WIDTH / 2.0f;
+	float lastY = HEIGHT / 2.0f;
 
 	bool framebufferResized = false;
 
@@ -95,6 +100,8 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+		glfwSetCursorPosCallback(window, mouseCallback); // 绑定鼠标回调
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // 隐藏鼠标，沉浸式体验！
 		windowExtent = { WIDTH, HEIGHT };
 	}
 
@@ -108,26 +115,61 @@ private:
 		m_vikingRoomTex = Texture::loadFromFile(*m_device, "images/viking_room.png");
 		m_yoasobiTex = Texture::loadFromFile(*m_device, "images/yoasobi.jpg");
 		createTextureSampler();
-
-		loadModel();
-
-		VertexBuffer::createVertexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), vertexBuffer, vertexBufferMemory, m_vertices);
-		IndexBuffer::createIndexBuffer(m_device->getCommandPool(), m_device->getGraphicsQueue(), m_device->getLogicalDevice(), m_device->getPhysicalDevice(), indexBuffer, indexBufferMemory, m_indices);
+		m_vikingRoom = std::make_unique<Model>(*m_device, "models/VikingRoom/viking_room.obj");
 		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), m_swapChain->getSwapChainImages(), uniformBuffers, uniformBuffersMemory);
-		Descriptor::createDescriptorPool(m_device->getLogicalDevice(), m_swapChain->getSwapChainImages().size(), descriptorPool);
-		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, descriptorPool, m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, m_vikingRoomTex->getImageView(), textureSampler);
+		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, m_device->getDescriptorPool(), m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, m_vikingRoomTex->getImageView(), textureSampler);
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void processInput(GLFWwindow* window) {
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(window, true);
+
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) m_camera.processKeyboard(FORWARD, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) m_camera.processKeyboard(BACKWARD, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) m_camera.processKeyboard(LEFT, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) m_camera.processKeyboard(RIGHT, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) m_camera.reset();
+	}
+
+	//C语言api绑定回调函数只能静态，因为非静态有this指针，它不认识这个
+	static void mouseCallback(GLFWwindow* window, double xposIn, double yposIn) {
+		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+		app->handleMouse(xposIn, yposIn);
+	}
+
+	void handleMouse(double xposIn, double yposIn) {
+		float xpos = static_cast<float>(xposIn);
+		float ypos = static_cast<float>(yposIn);
+
+		if (firstMouse) {
+			lastX = xpos;
+			lastY = ypos;
+			firstMouse = false;
+		}
+
+		//float xoffset = xpos - lastX;
+		float xoffset = lastX - xpos;
+		float yoffset = lastY - ypos; // 注意这里是反的，因为屏幕Y坐标是从上往下的
+		lastX = xpos;
+		lastY = ypos;
+
+		m_camera.processMouseMovement(xoffset, yoffset);
 	}
 
 	void mainLoop()
 	{
 		auto lastTime = std::chrono::high_resolution_clock::now();
 		int frameCount = 0;
-
 		while (!glfwWindowShouldClose(window))
 		{
+			float currentFrame = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+			deltaTime = currentFrame - lastFrame;
+			lastFrame = currentFrame;
+
 			glfwPollEvents();
+			processInput(window);
 			drawFrame();
 
 			auto currentTime = std::chrono::high_resolution_clock::now();
@@ -180,14 +222,9 @@ private:
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
 		m_yoasobiTex.reset();
 		m_vikingRoomTex.reset();
-		vkDestroyDescriptorPool(m_device->getLogicalDevice(), descriptorPool, nullptr);
+		//vkDestroyDescriptorPool(m_device->getLogicalDevice(), descriptorPool, nullptr);
 		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
-		vkDestroyBuffer(m_device->getLogicalDevice(), indexBuffer, nullptr);
-		vkFreeMemory(m_device->getLogicalDevice(), indexBufferMemory, nullptr);
-
-		vkDestroyBuffer(m_device->getLogicalDevice(), vertexBuffer, nullptr);
-		vkFreeMemory(m_device->getLogicalDevice(), vertexBufferMemory, nullptr);
-
+		m_vikingRoom.reset();
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(m_device->getLogicalDevice(), renderFinishedSemaphores[i], nullptr);
@@ -224,7 +261,7 @@ private:
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
 
-		Descriptor::updateUniformBuffer(m_device->getLogicalDevice(),uniformBuffersMemory, m_swapChain->getSwapChainExtent(),imageIndex);
+		Descriptor::updateUniformBuffer(m_device->getLogicalDevice(),uniformBuffersMemory, m_swapChain->getSwapChainExtent(),imageIndex, m_camera);
 
 		vkResetFences(m_device->getLogicalDevice(), 1, &inFlightFences[currentFrame]);
 
@@ -426,15 +463,10 @@ private:
 			scissor.extent = m_swapChain->getSwapChainExtent();
 			vkCmdSetScissor(commandBuffers[i], 0, 1, &scissor);
 
-			std::vector<VkBuffer> vertexbuffers = { vertexBuffer };
-			std::vector<VkDeviceSize> offsets = { 0 };
-			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexbuffers.data(), offsets.data());
-			
-			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			
+			m_vikingRoom->bind(commandBuffers[i]);
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout->getHandle(), 0, 1, &descriptorSets[i], 0, nullptr);
-			
-			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(m_indices.size()), 1, 0, 0, 0);
+			m_vikingRoom->draw(commandBuffers[i]);
+
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 			{
@@ -496,6 +528,7 @@ private:
 		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
 		createSwapchainFrameBuffers();
 		createCommandBuffers();
+		std::cout << "Recreated Swapchain!" << std::endl;
 	}
 
 	void createTextureSampler()
@@ -523,66 +556,6 @@ private:
 		}
 	}
 
-	void loadModel()
-	{
-		tinyobj::attrib_t attrib;
-		std::vector<tinyobj::shape_t> shapes;
-		std::vector<tinyobj::material_t> materials;
-		std::string warn, err;
-
-		// 假设你在项目根目录下建了一个 models 文件夹，里面放了一个 3D 模型
-		// 你可以去网上随便下载一个 .obj 模型（最好带贴图的）
-		//std::string modelPath = "models/stanfordBunny/stanford-bunny.obj";
-		std::string modelPath = "models/VikingRoom/viking_room.obj";
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())) {
-			throw std::runtime_error(warn + err);
-		}
-
-		// 核心优化：利用我们之前写的哈希黑魔法，极速剔除重复顶点
-		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-		for (const auto& shape : shapes) {
-			for (const auto& index : shape.mesh.indices) {
-				Vertex vertex{};
-
-				// 1. 抓取位置 (XYZ)
-				vertex.pos = {
-					attrib.vertices[3 * index.vertex_index + 0],
-					attrib.vertices[3 * index.vertex_index + 1],
-					attrib.vertices[3 * index.vertex_index + 2]
-				};
-
-				// 2. 抓取 UV 坐标 (注意：Vulkan 的 V 轴和 OBJ 格式是上下颠倒的！)
-				if (index.texcoord_index >= 0) {
-					vertex.texCoord = {
-						attrib.texcoords[2 * index.texcoord_index + 0],
-						1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-					};
-				}
-
-				// 3. 抓取法线 (后续写光照和描边全靠它)
-				if (index.normal_index >= 0) {
-					vertex.normal = {
-						attrib.normals[3 * index.normal_index + 0],
-						attrib.normals[3 * index.normal_index + 1],
-						attrib.normals[3 * index.normal_index + 2]
-					};
-				}
-
-				// 4. 颜色 (如果模型没带顶点颜色，我们就强行塞个纯白色)
-				vertex.color = { 1.0f, 1.0f, 1.0f };
-
-				// 5. 哈希去重校验
-				if (uniqueVertices.count(vertex) == 0) {
-					uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
-					m_vertices.push_back(vertex);
-				}
-
-				// 6. 填入索引数组
-				m_indices.push_back(uniqueVertices[vertex]);
-			}
-		}
-	}
 };
 
 

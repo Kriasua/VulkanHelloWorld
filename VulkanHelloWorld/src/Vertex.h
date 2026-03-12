@@ -70,18 +70,7 @@ private:
 };
 
 
-//const std::vector<float> vertices = {
-//
-//	-0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-//
-//	0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-//
-//	0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-//
-//	-0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
-//};
-//
-//const std::vector<uint16_t> indices = { 0,1,2,2,3,0 };
+
 
 // 真正的 3D 顶点结构体
 struct Vertex {
@@ -113,9 +102,3 @@ namespace std {
 	};
 }
 
-
-class VertexBuffer
-{
-public:
-	static void createVertexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory, std::vector<Vertex>& vertices);
-};

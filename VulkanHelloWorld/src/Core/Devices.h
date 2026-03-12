@@ -47,7 +47,7 @@ public:
 	VkDebugUtilsMessengerEXT getDebugCallback() const { return m_callback; }
 	SwapChainSupportDetails getSwapChainSupportDetails(VkPhysicalDevice device) { return querySwapChainSupport(m_physicalDevice); }
 	QueueFamilyIndices getQueueFamilyIndices(VkPhysicalDevice device) { return findQueueFamilies(device); }
-
+	VkDescriptorPool getDescriptorPool() const { return m_descriptorPool; }
 
 private:
 	
@@ -60,6 +60,7 @@ private:
 	VkQueue m_graphicsQueue;
 	VkQueue m_presentQueue;
 	VkCommandPool m_commandPool;
+	VkDescriptorPool m_descriptorPool;
 
 	void createInstance();
 	void setupDebugCallback();
@@ -67,6 +68,7 @@ private:
 	void pickPhysicalDevice();
 	void createLogicalDevice();
 	void createCommandPool();
+	void createDescriptorPool();
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);

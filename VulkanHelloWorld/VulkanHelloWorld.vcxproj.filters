@@ -1026,6 +1026,15 @@
     <ClInclude Include="dependencies\tiny_obj_loader.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\Camera.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Model.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Material.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -1062,6 +1071,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Texture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Model.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Material.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

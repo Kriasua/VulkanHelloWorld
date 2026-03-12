@@ -14,11 +14,6 @@ public:
 	static void copyBufferToImage(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 };
 
-class IndexBuffer
-{
-public:
-	static void createIndexBuffer(VkCommandPool commandPool, VkQueue graphicsQueue, VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory, std::vector<uint32_t>& indices);
-};
 
 class CommandBuffer
 {

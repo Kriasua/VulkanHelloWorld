@@ -35,7 +35,7 @@ void Descriptor::createDescriptorSetLayout(VkDevice device, VkDescriptorSetLayou
 	}
 }
 
-void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory>& uniformBuffersMemory, VkExtent2D swapChainExtent, uint32_t currentImage)
+void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory>& uniformBuffersMemory, VkExtent2D swapChainExtent, uint32_t currentImage, const Camera& camera)
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
@@ -43,11 +43,13 @@ void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory
 
 	UniformBufferObject ubo{};
 	
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * 0.5f * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::mat4(1.0f);
 	ubo.model = glm::scale(ubo.model, glm::vec3(0.5f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(20.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-	ubo.proj[1][1] *= -1; //vulkan和opengl的Y轴反过来，所以需要乘-1
+	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//ubo.proj = glm::perspective(glm::radians(20.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+	//ubo.proj[1][1] *= -1; //vulkan和opengl的Y轴反过来，所以需要乘-1
+	ubo.view = camera.getViewMatrix();
+	ubo.proj = camera.getProjectionMatrix(swapChainExtent.width / (float)swapChainExtent.height);
 	ubo.time = time;
 
 	void* data;
