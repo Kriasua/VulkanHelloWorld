@@ -43,11 +43,8 @@ void Descriptor::updateUniformBuffer(VkDevice device, std::vector<VkDeviceMemory
 
 	UniformBufferObject ubo{};
 	
-	ubo.model = glm::mat4(1.0f);
-	ubo.model = glm::scale(ubo.model, glm::vec3(0.5f));
-	//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	//ubo.proj = glm::perspective(glm::radians(20.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-	//ubo.proj[1][1] *= -1; //vulkan和opengl的Y轴反过来，所以需要乘-1
+	//ubo.model = glm::mat4(1.0f);
+	//ubo.model = glm::scale(ubo.model, glm::vec3(0.5f));
 	ubo.view = camera.getViewMatrix();
 	ubo.proj = camera.getProjectionMatrix(swapChainExtent.width / (float)swapChainExtent.height);
 	ubo.time = time;
@@ -90,7 +87,10 @@ void Descriptor::createDescriptorPool(VkDevice device, size_t swapChainImagesSiz
 	
 }
 
-void Descriptor::createDescriptorSets(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool, size_t swapChainImagesSize, std::vector<VkBuffer>& uniformBuffers, std::vector<VkDescriptorSet>& descriptorSets, VkImageView textureImageView, VkSampler textureSampler)
+void Descriptor::createDescriptorSets(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, 
+	VkDescriptorPool descriptorPool, size_t swapChainImagesSize, 
+	std::vector<VkBuffer>& uniformBuffers, std::vector<VkDescriptorSet>& descriptorSets, 
+	VkImageView textureImageView, VkSampler textureSampler)
 {
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImagesSize, descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -100,12 +100,14 @@ void Descriptor::createDescriptorSets(VkDevice device, VkDescriptorSetLayout des
 	allocInfo.pSetLayouts = layouts.data();
 
 	descriptorSets.resize(swapChainImagesSize);
+
 	if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
 
 	for (size_t i = 0; i < swapChainImagesSize; i++) {
 		VkDescriptorBufferInfo bufferInfo{};
+		//每一帧都有一个uniformBuffers
 		bufferInfo.buffer = uniformBuffers[i];
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
@@ -125,6 +127,7 @@ void Descriptor::createDescriptorSets(VkDevice device, VkDescriptorSetLayout des
 		descriptorWrites[0].pBufferInfo = &bufferInfo;
 		descriptorWrites[0].pImageInfo = nullptr; // Optional
 		descriptorWrites[0].pTexelBufferView = nullptr;
+
 		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[1].dstSet = descriptorSets[i];
 		descriptorWrites[1].dstBinding = 1;

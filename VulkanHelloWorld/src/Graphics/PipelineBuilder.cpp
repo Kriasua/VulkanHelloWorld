@@ -1,4 +1,5 @@
 #include "PipelineBuilder.h"
+#include <glm/glm.hpp>
 #include <stdexcept>
 
 
@@ -125,12 +126,18 @@ void PipelineBuilder::enableDepthTest()
 PipelineLayout::PipelineLayout(const VkDevice device, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
 	:m_device(device)
 {
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // 顶点阶段用
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(glm::mat4); // 一个 mat4 是 64 字节
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
 	pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+	//pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
 
 	if (vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_layout) != VK_SUCCESS)

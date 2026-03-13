@@ -25,7 +25,7 @@ public:
 	const VkImageView& getImageView() const { return m_imageView; }
 	const VkFormat& getFormat() const { return m_format; }
 
-	static std::unique_ptr<Texture> loadFromFile(Devices& device, const std::string& path);
+	static std::shared_ptr<Texture> loadFromFile(Devices& device, const std::string& path);
 	static std::unique_ptr<Texture> createDepthTexture(Devices& device, uint32_t width, uint32_t height);
 private:
 	Devices& m_device; // 引用Devices 类，方便获取物理和逻辑设备

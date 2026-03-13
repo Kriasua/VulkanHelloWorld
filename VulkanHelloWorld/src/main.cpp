@@ -17,6 +17,7 @@
 #include "Vertex.h"
 #include "Description.h"
 #include "Core/Devices.h"
+#include "Renderer/Renderer.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Shader.h"
 #include "Graphics/PipelineBuilder.h"
@@ -25,6 +26,8 @@
 #include "Graphics/Texture.h"
 #include "Graphics/Camera.h"
 #include "Graphics/Model.h"
+#include "Graphics/Material.h"
+#include "Graphics/Entity.h"
 
 const uint32_t WIDTH = 2560;
 const uint32_t HEIGHT = 1440;
@@ -40,13 +43,14 @@ public:
 		initWindow();
 		m_device = std::make_unique<Devices>(window);
 		m_swapChain = std::make_unique<SwapChain>(*m_device, windowExtent);
+		m_renderer = std::make_unique<Renderer>(*m_device, *m_swapChain, MAX_FRAMES_IN_FLIGHT);
 		initVulkan();
 		mainLoop();
 		cleanUp();
 	}
 
 private:
-
+	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<Devices> m_device;
 	std::unique_ptr<SwapChain> m_swapChain;
 	std::unique_ptr<PipelineLayout> m_pipelineLayout;
@@ -70,16 +74,15 @@ private:
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
-	//VkDescriptorPool descriptorPool;
-	std::vector<VkDescriptorSet> descriptorSets;
-
 	VkSampler textureSampler;
 
-	std::unique_ptr<Texture> m_yoasobiTex;
-	std::unique_ptr<Texture> m_vikingRoomTex;
+	std::shared_ptr<Texture> m_yoasobiTex;
+	std::shared_ptr<Texture> m_vikingRoomTex;
 	std::unique_ptr<Texture> m_depthTex;
-	std::unique_ptr<Model> m_vikingRoom;
-
+	std::shared_ptr<Model> m_vikingRoom;
+	std::shared_ptr<Material> m_vikingRoomMat;
+	std::unique_ptr<Entity> m_vikingEntity;
+	std::unique_ptr<Entity> m_vikingEntity2;
 	Camera m_camera{};
 	float deltaTime;
 	float lastFrame;
@@ -117,7 +120,18 @@ private:
 		createTextureSampler();
 		m_vikingRoom = std::make_unique<Model>(*m_device, "models/VikingRoom/viking_room.obj");
 		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), m_swapChain->getSwapChainImages(), uniformBuffers, uniformBuffersMemory);
-		Descriptor::createDescriptorSets(m_device->getLogicalDevice(), descriptorSetLayout, m_device->getDescriptorPool(), m_swapChain->getSwapChainImages().size(), uniformBuffers, descriptorSets, m_vikingRoomTex->getImageView(), textureSampler);
+		
+		
+		m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), descriptorSetLayout);
+		
+		m_vikingRoomMat->addTexture(1, m_vikingRoomTex);
+		m_vikingRoomMat->addUniformBuffer(0, uniformBuffers,sizeof(UniformBufferObject));
+		m_vikingRoomMat->build(textureSampler);
+
+		m_vikingEntity = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
+		m_vikingEntity2 = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
+		m_vikingEntity2->setScale(glm::vec3{ 0.5f });
+		m_vikingEntity2->setPosition(glm::vec3{ 2.0f,0.0f,0.0f });
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -220,9 +234,11 @@ private:
 		}
 
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
+		m_vikingEntity2.reset();
+		m_vikingEntity.reset();
+		m_vikingRoomMat.reset();
 		m_yoasobiTex.reset();
 		m_vikingRoomTex.reset();
-		//vkDestroyDescriptorPool(m_device->getLogicalDevice(), descriptorPool, nullptr);
 		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
 		m_vikingRoom.reset();
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -416,7 +432,6 @@ private:
 			throw std::runtime_error("failed to allocate command buffers!");
 		}
 
-
 		for (size_t i = 0; i < commandBuffers.size(); i++)
 		{
 			VkCommandBufferBeginInfo beginInfo = {};
@@ -427,7 +442,6 @@ private:
 			{
 				throw std::runtime_error("failed to begin recording command buffer!");
 			}
-
 
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -463,10 +477,8 @@ private:
 			scissor.extent = m_swapChain->getSwapChainExtent();
 			vkCmdSetScissor(commandBuffers[i], 0, 1, &scissor);
 
-			m_vikingRoom->bind(commandBuffers[i]);
-			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout->getHandle(), 0, 1, &descriptorSets[i], 0, nullptr);
-			m_vikingRoom->draw(commandBuffers[i]);
-
+			m_vikingEntity->draw(commandBuffers[i], m_pipelineLayout->getHandle(), i);
+			m_vikingEntity2->draw(commandBuffers[i], m_pipelineLayout->getHandle(), i);
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 			{

@@ -492,6 +492,7 @@
     <ClInclude Include="src\Core\Devices.h" />
     <ClInclude Include="src\Description.h" />
     <ClInclude Include="src\Graphics\Camera.h" />
+    <ClInclude Include="src\Graphics\Entity.h" />
     <ClInclude Include="src\Graphics\Framebuffer.h" />
     <ClInclude Include="src\Graphics\Material.h" />
     <ClInclude Include="src\Graphics\Model.h" />
@@ -502,11 +503,13 @@
     <ClInclude Include="src\Graphics\Texture.h" />
     <ClInclude Include="src\Core\ValidationLayerAssist.h" />
     <ClInclude Include="src\Buffer.h" />
+    <ClInclude Include="src\Renderer\Renderer.h" />
     <ClInclude Include="src\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Core\Devices.cpp" />
     <ClCompile Include="src\Description.cpp" />
+    <ClCompile Include="src\Graphics\Entity.cpp" />
     <ClCompile Include="src\Graphics\Framebuffer.cpp" />
     <ClCompile Include="src\Graphics\Material.cpp" />
     <ClCompile Include="src\Graphics\Model.cpp" />
@@ -518,6 +521,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Core\ValidationLayerAssist.cpp" />
     <ClCompile Include="src\Buffer.cpp" />
+    <ClCompile Include="src\Renderer\Renderer.cpp" />
     <ClCompile Include="src\Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>

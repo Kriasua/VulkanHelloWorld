@@ -16,25 +16,28 @@ layout(location = 4) out vec3 fragPos;
 
 layout(binding = 0) uniform UniformBufferObject
 {
-	mat4 model;
 	mat4 view;
 	mat4 proj;
 	float intime;
 } ubo;
+
+layout(push_constant) uniform Push {
+    mat4 model;
+} entity;
 
 out gl_PerVertex {
 	vec4 gl_Position;
 };
 
 void main() {
-	vec4 worldPos = ubo.model * vec4(inPosition, 1.0);
+	vec4 worldPos = entity.model * vec4(inPosition, 1.0);
 	gl_Position = ubo.proj * ubo.view * worldPos;
 	fragColor = inColor;
 	outTime = ubo.intime;
 	fragTexCoord = inTexCoord;
 
 	// 法线也需要跟着模型旋转，否则模型转了，反光面却不转
-    mat3 normalMatrix = transpose(inverse(mat3(ubo.model)));
+    mat3 normalMatrix = transpose(inverse(mat3(entity.model)));
     fragNormal = normalMatrix * inNormal;
     
     // 把世界坐标传给片段着色器算光照

@@ -13,6 +13,7 @@ public:
 
 	Model(const Model&) = delete;
 	Model& operator=(const Model&) = delete;
+	uint32_t getIndexCnt()  const { return m_indexCount; }
 
 	void bind(VkCommandBuffer cmdbuff);
 	void draw(VkCommandBuffer cmdbuff);
