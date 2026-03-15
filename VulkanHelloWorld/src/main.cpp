@@ -18,6 +18,7 @@
 #include "Description.h"
 #include "Core/Devices.h"
 #include "Renderer/Renderer.h"
+#include "Scene/Scene.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Shader.h"
 #include "Graphics/PipelineBuilder.h"
@@ -54,6 +55,8 @@ private:
 	std::unique_ptr<Devices> m_device;
 	std::unique_ptr<SwapChain> m_swapChain;
 
+	std::unique_ptr<Scene> m_scene;
+
 	std::unique_ptr<PipelineLayout> m_pipelineLayout;
 	std::shared_ptr<Pipeline> m_pipeline;
 
@@ -65,14 +68,7 @@ private:
 	std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
 
 	VkSampler textureSampler;
-
-	std::shared_ptr<Texture> m_yoasobiTex;
-	std::shared_ptr<Texture> m_vikingRoomTex;
 	std::unique_ptr<Texture> m_depthTex;
-	std::shared_ptr<Model> m_vikingRoom;
-	std::shared_ptr<Material> m_vikingRoomMat;
-	std::unique_ptr<Entity> m_vikingEntity;
-	std::unique_ptr<Entity> m_vikingEntity2;
 
 	Camera m_camera{};
 	float deltaTime;
@@ -101,25 +97,37 @@ private:
 
 	void initVulkan()
 	{
+		m_scene = std::make_unique<Scene>(*m_device);
 		createRenderPass();
 		Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout);
 		createGraphicsPipeline();
 		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
 		createSwapchainFrameBuffers();
-		m_vikingRoomTex = Texture::loadFromFile(*m_device, "images/viking_room.png");
-		m_yoasobiTex = Texture::loadFromFile(*m_device, "images/yoasobi.jpg");
-		createTextureSampler();
 
-		m_vikingRoom = std::make_unique<Model>(*m_device, "models/VikingRoom/viking_room.obj");
-		m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), descriptorSetLayout);
-		m_vikingRoomMat->addTexture(1, m_vikingRoomTex);
+		m_scene->loadTexture("images/viking_room.png");
+		createTextureSampler();
+		m_scene->loadModel("models/VikingRoom/viking_room.obj");
+		
+		
+		std::shared_ptr<Material> m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), descriptorSetLayout);
+		m_vikingRoomMat->addTexture(1, m_scene->getTextures()[0]);
 		m_vikingRoomMat->build(*m_renderer,textureSampler);
 		m_vikingRoomMat->setPipeline(m_pipeline);
+		m_scene->addMaterial(m_vikingRoomMat);
+		m_scene->addEntity(m_scene->getModels()[0], m_scene->getMaterials()[0]);
 
-		m_vikingEntity = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
-		m_vikingEntity2 = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
-		m_vikingEntity2->setScale(glm::vec3{ 0.5f });
-		m_vikingEntity2->setPosition(glm::vec3{ 2.0f,0.0f,0.0f });
+		float offset = 2.0f;
+		float sscale = 0.9f;
+		for (int i = 0; i < 6; i++)
+		{
+			std::unique_ptr<Entity> m_vikingEntity2 = std::make_unique<Entity>(m_scene->getModels()[0], m_scene->getMaterials()[0]);
+			m_vikingEntity2->setScale(glm::vec3{ sscale });
+			m_vikingEntity2->setPosition(glm::vec3{ offset,0.0f,0.0f });
+			m_scene->addEntity(std::move(m_vikingEntity2));
+			offset += 2.0f;
+			sscale -= 0.14f;
+		}
+
 	}
 
 	void processInput(GLFWwindow* window) {
@@ -213,15 +221,10 @@ private:
 		vkDeviceWaitIdle(m_device->getLogicalDevice());
 		cleanUpSwapChain();
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
-		m_vikingEntity2.reset();
-		m_vikingEntity.reset();
-		m_vikingRoomMat.reset();
-		m_yoasobiTex.reset();
-		m_vikingRoomTex.reset();
 		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
-		m_vikingRoom.reset();
 		m_pipeline.reset();
 		m_pipelineLayout.reset();
+		m_scene.reset();
 		m_renderer.reset();
 		m_swapChain.reset();
 		m_device.reset();
@@ -231,13 +234,6 @@ private:
 
 	void drawFrame()
 	{
-		/*
-		* 有三步操作
-		* 1.从交换链中获取下一张可用图像，立马返回可用的图像索引，同时cpu会立即执行第二步。但这个函数会等到图片可用后才把信号量imageAvailableSemaphore置为“已完成”。
-		* 2.等到信号量imageAvailableSemaphore变“绿灯”时，执行command buffer里的命令，渲染图像，渲染完成后把信号量renderFinishedSemaphore置为“已完成”。
-		* 3.等到信号量renderFinishedSemaphore变“绿灯”时呈现图像，把刚才渲染好的图像提交给交换链进行显示。
-		*/
-
 		VkCommandBuffer cmd = m_renderer->beginFrame();
 		if (cmd == VK_NULL_HANDLE) {
 			recreateSwapChain();
@@ -246,8 +242,7 @@ private:
 
 		m_renderer->updateGlbUBO();
 		m_renderer->beginRenderPass(cmd, m_mainRenderPass->getHandle(), m_framebuffers[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
-		m_vikingEntity->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
-		m_vikingEntity2->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
+		m_scene->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
 		m_renderer->endRenderPass(cmd);
 		VkResult result = m_renderer->endFrame();
 

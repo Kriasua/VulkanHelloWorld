@@ -38,6 +38,24 @@ void Scene::addMaterial(const std::shared_ptr<Material> mat)
 	m_materials.push_back(mat);
 }
 
+void Scene::addEntity(std::unique_ptr<Entity> entity)
+{
+	m_entities.push_back(std::move(entity));
+}
+
+void Scene::addEntity(std::shared_ptr<Model> model, std::shared_ptr<Material> material)
+{
+	m_entities.push_back(std::make_unique<Entity>(model, material));
+}
+
+void Scene::draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout, uint32_t currentFrame)
+{
+	for (auto& entity : m_entities)
+	{
+		entity->draw(cmd, pipelineLayout, currentFrame);
+	}
+}
+
 Scene::~Scene()
 {
 
