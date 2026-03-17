@@ -33,6 +33,20 @@ std::shared_ptr<Texture> Scene::loadTexture(const std::string& path)
 	return tex;
 }
 
+std::shared_ptr<Texture> Scene::loadTexture(uint32_t color)
+{
+	std::string colorName = std::to_string(color);
+	if (m_textureCache.contains(colorName))
+	{
+		return m_textureCache[colorName];
+	}
+
+	std::shared_ptr<Texture> tex = Texture::createPureColorTexture(m_device, color);
+	m_textures.push_back(tex);
+	m_textureCache[colorName] = tex;
+	return tex;
+}
+
 void Scene::addMaterial(const std::shared_ptr<Material> mat)
 {
 	m_materials.push_back(mat);
@@ -48,11 +62,11 @@ void Scene::addEntity(std::shared_ptr<Model> model, std::shared_ptr<Material> ma
 	m_entities.push_back(std::make_unique<Entity>(model, material));
 }
 
-void Scene::draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout, uint32_t currentFrame)
+void Scene::draw(VkCommandBuffer cmd, uint32_t currentFrame)
 {
 	for (auto& entity : m_entities)
 	{
-		entity->draw(cmd, pipelineLayout, currentFrame);
+		entity->draw(cmd, currentFrame);
 	}
 }
 

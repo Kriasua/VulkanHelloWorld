@@ -486,6 +486,14 @@
     <ClInclude Include="dependencies\glm\vec3.hpp" />
     <ClInclude Include="dependencies\glm\vec4.hpp" />
     <ClInclude Include="dependencies\glm\vector_relational.hpp" />
+    <ClInclude Include="dependencies\imgui\imconfig.h" />
+    <ClInclude Include="dependencies\imgui\imgui.h" />
+    <ClInclude Include="dependencies\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="dependencies\imgui\imgui_impl_vulkan.h" />
+    <ClInclude Include="dependencies\imgui\imgui_internal.h" />
+    <ClInclude Include="dependencies\imgui\imstb_rectpack.h" />
+    <ClInclude Include="dependencies\imgui\imstb_textedit.h" />
+    <ClInclude Include="dependencies\imgui\imstb_truetype.h" />
     <ClInclude Include="dependencies\stb_image.h" />
     <ClInclude Include="dependencies\tiny_obj_loader.h" />
     <ClInclude Include="dependencies\vulkan\vulkan.h" />
@@ -497,6 +505,7 @@
     <ClInclude Include="src\Graphics\Material.h" />
     <ClInclude Include="src\Graphics\Model.h" />
     <ClInclude Include="src\Graphics\PipelineBuilder.h" />
+    <ClInclude Include="src\Graphics\PipelineFactory.h" />
     <ClInclude Include="src\Graphics\RenderPass.h" />
     <ClInclude Include="src\Graphics\Shader.h" />
     <ClInclude Include="src\Graphics\Swapchain.h" />
@@ -508,6 +517,12 @@
     <ClInclude Include="src\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dependencies\imgui\imgui.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_draw.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Core\Devices.cpp" />
     <ClCompile Include="src\Description.cpp" />
     <ClCompile Include="src\Graphics\Entity.cpp" />
@@ -515,6 +530,7 @@
     <ClCompile Include="src\Graphics\Material.cpp" />
     <ClCompile Include="src\Graphics\Model.cpp" />
     <ClCompile Include="src\Graphics\PipelineBuilder.cpp" />
+    <ClCompile Include="src\Graphics\PipelineFactory.cpp" />
     <ClCompile Include="src\Graphics\RenderPass.cpp" />
     <ClCompile Include="src\Graphics\Shader.cpp" />
     <ClCompile Include="src\Graphics\Swapchain.cpp" />
@@ -742,6 +758,8 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
     </CustomBuild>
+    <None Include="dependencies\imgui\backends\imgui_impl_metal.mm" />
+    <None Include="dependencies\imgui\backends\imgui_impl_osx.mm" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\glfw3.lib" />

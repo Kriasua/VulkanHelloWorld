@@ -11,7 +11,7 @@
 class Material
 {
 public:
-	Material(Devices& device, int maxFrame, VkDescriptorSetLayout& deslayout);
+	Material(Devices& device, int maxFrame, std::shared_ptr<Pipeline> m_pipeline);
 	~Material();
 
 	Material(const Material&) = delete;
@@ -21,15 +21,24 @@ public:
 	void addUniformBuffer(uint32_t binding, const std::vector<VkBuffer>& buffers, VkDeviceSize range);
 
 	void build(Renderer& renderer, VkSampler sampler);
-	void bind(VkCommandBuffer cmdbuf, VkPipelineLayout layout, uint32_t currentFrame);
-	void setPipeline(std::shared_ptr<Pipeline> pipeline) { m_pipeline = pipeline; }
+	void bind(VkCommandBuffer cmdbuf, uint32_t currentFrame);
+	
+	void setPipeline(std::shared_ptr<Pipeline> pipeline)
+	{ 
+		m_pipeline = pipeline; 
+		m_deslayout = m_pipeline->getDescriptorSetLayout();
+	}
 
-	VkDescriptorSetLayout m_deslayout;
+	const std::shared_ptr<Pipeline>& getPipeline() const {
+		return m_pipeline;
+	}
+
 private:
 	Devices& m_device;
 	int m_MAX_FRAMES_IN_FLIGHT;
 	std::shared_ptr<Pipeline> m_pipeline;
 	std::vector<VkDescriptorSet> m_descriptorSets;
+	VkDescriptorSetLayout m_deslayout = VK_NULL_HANDLE;
 
 	struct TextureData
 	{

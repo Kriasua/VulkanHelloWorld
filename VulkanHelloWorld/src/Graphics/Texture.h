@@ -25,6 +25,8 @@ public:
 	const VkImageView& getImageView() const { return m_imageView; }
 	const VkFormat& getFormat() const { return m_format; }
 
+	static std::shared_ptr<Texture> createPureColorTexture(Devices& device, uint32_t color);
+
 	static std::shared_ptr<Texture> loadFromFile(Devices& device, const std::string& path);
 	static std::unique_ptr<Texture> createDepthTexture(Devices& device, uint32_t width, uint32_t height);
 private:

@@ -8,13 +8,13 @@
 #include "Buffer.h"
 #include <array>
 
-void Descriptor::createDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout)
+VkDescriptorSetLayout Descriptor::createDescriptorSetLayout(VkDevice device)
 {
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
 	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
@@ -30,9 +30,12 @@ void Descriptor::createDescriptorSetLayout(VkDevice device, VkDescriptorSetLayou
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 	layoutInfo.pBindings = bindings.data();
+
+	VkDescriptorSetLayout descriptorSetLayout;
 	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
+	return descriptorSetLayout;
 }
 
 

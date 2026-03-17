@@ -1,4 +1,4 @@
-#define STB_IMAGE_IMPLEMENTATION
+ï»¿#define STB_IMAGE_IMPLEMENTATION
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -29,6 +29,10 @@
 #include "Graphics/Model.h"
 #include "Graphics/Material.h"
 #include "Graphics/Entity.h"
+#include "Graphics/PipelineFactory.h"
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_vulkan.h>
 
 const uint32_t WIDTH = 2560;
 const uint32_t HEIGHT = 1440;
@@ -57,27 +61,19 @@ private:
 
 	std::unique_ptr<Scene> m_scene;
 
-	std::unique_ptr<PipelineLayout> m_pipelineLayout;
-	std::shared_ptr<Pipeline> m_pipeline;
-
-	std::unique_ptr<RenderPass> m_mainRenderPass;
 	VkExtent2D windowExtent;
 
 	VkDescriptorSetLayout descriptorSetLayout;
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-	std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
-
-	VkSampler textureSampler;
-	std::unique_ptr<Texture> m_depthTex;
 
 	Camera m_camera{};
 	float deltaTime;
 	float lastFrame;
 
-	// ×·×ÙÊó±ê
-	bool firstMouse = true;//·ÀÖ¹Êó±ê¸ÕÒÆÈë´°¿ÚÊ±¼ÆËã´íÎó
+	// è¿½è¸ªé¼ æ ‡
+	bool firstMouse = true;//é˜²æ­¢é¼ æ ‡åˆšç§»å…¥çª—å£æ—¶è®¡ç®—é”™è¯¯
 
-	//Ä¬ÈÏÔÚ´°¿ÚÖĞĞÄ
+	//é»˜è®¤åœ¨çª—å£ä¸­å¿ƒ
 	float lastX = WIDTH / 2.0f;
 	float lastY = HEIGHT / 2.0f;
 
@@ -90,35 +86,44 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-		glfwSetCursorPosCallback(window, mouseCallback); // °ó¶¨Êó±ê»Øµ÷
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Òş²ØÊó±ê£¬³Á½şÊ½ÌåÑé£¡
+		glfwSetCursorPosCallback(window, mouseCallback); // ç»‘å®šé¼ æ ‡å›è°ƒ
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // éšè—é¼ æ ‡ï¼Œæ²‰æµ¸å¼ä½“éªŒï¼
 		windowExtent = { WIDTH, HEIGHT };
 	}
 
 	void initVulkan()
 	{
+		//åˆ›å»ºæ¨¡å‹ï¼Œè´´å›¾ï¼ˆå®ä½“èµ„æºï¼‰
 		m_scene = std::make_unique<Scene>(*m_device);
-		createRenderPass();
-		Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout);
-		createGraphicsPipeline();
-		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
-		createSwapchainFrameBuffers();
+		m_scene->loadTexture("images/viking_room.png");//0å·è´´å›¾
+		m_scene->loadTexture(0xFFFFFF00);//1å·è´´å›¾
+		m_scene->loadModel("models/VikingRoom/viking_room.obj");//0å·æ¨¡å‹
+		m_scene->loadModel("models/plane/plane.obj");//1å·æ¨¡å‹
 
-		m_scene->loadTexture("images/viking_room.png");
-		createTextureSampler();
-		m_scene->loadModel("models/VikingRoom/viking_room.obj");
-		
-		
-		std::shared_ptr<Material> m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), descriptorSetLayout);
+		//åˆ›å»ºæè´¨ï¼ˆè™šæ‹Ÿèµ„æºï¼‰
+		std::shared_ptr<Material> m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), PipelineFactory::createStandardPipeline(
+			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
+			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
 		m_vikingRoomMat->addTexture(1, m_scene->getTextures()[0]);
-		m_vikingRoomMat->build(*m_renderer,textureSampler);
-		m_vikingRoomMat->setPipeline(m_pipeline);
+		m_vikingRoomMat->build(*m_renderer,m_renderer->getLinearRepeatSampler());
+
+		std::shared_ptr<Material> m_PureColorMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), PipelineFactory::createStandardPipeline(
+			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
+			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
+		m_PureColorMat->addTexture(1, m_scene->getTextures()[1]);
+		m_PureColorMat->build(*m_renderer, m_renderer->getLinearRepeatSampler());
+
+
+
+
 		m_scene->addMaterial(m_vikingRoomMat);
+		m_scene->addMaterial(m_PureColorMat);
 		m_scene->addEntity(m_scene->getModels()[0], m_scene->getMaterials()[0]);
+		m_scene->addEntity(m_scene->getModels()[1], m_scene->getMaterials()[1]);
 
 		float offset = 2.0f;
 		float sscale = 0.9f;
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 4; i++)
 		{
 			std::unique_ptr<Entity> m_vikingEntity2 = std::make_unique<Entity>(m_scene->getModels()[0], m_scene->getMaterials()[0]);
 			m_vikingEntity2->setScale(glm::vec3{ sscale });
@@ -128,8 +133,8 @@ private:
 			sscale -= 0.14f;
 		}
 
+		m_renderer->initImGui(window);
 	}
-
 	void processInput(GLFWwindow* window) {
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
@@ -139,9 +144,23 @@ private:
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) m_camera.processKeyboard(LEFT, deltaTime);
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) m_camera.processKeyboard(RIGHT, deltaTime);
 		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) m_camera.reset();
+
+		// æŒ‰ Tab é”®é‡Šæ”¾/é”å®šé¼ æ ‡
+		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+			if (m_camera.active)
+			{
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+				m_camera.active = false;
+			}
+			else
+			{
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+				m_camera.active = true;
+			}
+		}
 	}
 
-	//CÓïÑÔapi°ó¶¨»Øµ÷º¯ÊıÖ»ÄÜ¾²Ì¬£¬ÒòÎª·Ç¾²Ì¬ÓĞthisÖ¸Õë£¬Ëü²»ÈÏÊ¶Õâ¸ö
+	//Cè¯­è¨€apiç»‘å®šå›è°ƒå‡½æ•°åªèƒ½é™æ€ï¼Œå› ä¸ºéé™æ€æœ‰thisæŒ‡é’ˆï¼Œå®ƒä¸è®¤è¯†è¿™ä¸ª
 	static void mouseCallback(GLFWwindow* window, double xposIn, double yposIn) {
 		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
 		app->handleMouse(xposIn, yposIn);
@@ -158,7 +177,7 @@ private:
 		}
 
 		float xoffset = lastX - xpos;
-		float yoffset = lastY - ypos; // ×¢ÒâÕâÀïÊÇ·´µÄ£¬ÒòÎªÆÁÄ»Y×ø±êÊÇ´ÓÉÏÍùÏÂµÄ
+		float yoffset = lastY - ypos; // æ³¨æ„è¿™é‡Œæ˜¯åçš„ï¼Œå› ä¸ºå±å¹•Yåæ ‡æ˜¯ä»ä¸Šå¾€ä¸‹çš„
 		lastX = xpos;
 		lastY = ypos;
 
@@ -177,6 +196,25 @@ private:
 
 			glfwPollEvents();
 			processInput(window);
+			// 1. ImGui å¼€å¯æ–°å¸§
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+
+			// 2. ç¼–å†™ä½ çš„æ§åˆ¶çª—å£
+
+			ImGui::Begin("Light Controller");
+			ImGui::SliderFloat("Light Yaw", &m_renderer->m_lightYaw, 0.0f, 360.0f);
+			ImGui::SliderFloat("Light Pitch", &m_renderer->m_lightPitch, -90.0f, 90.0f);
+			// å¢åŠ ä¸€ä¸ªé‡ç½®æŒ‰é’®ï¼ˆå¾ˆæœ‰ç”¨ï¼‰
+			if (ImGui::Button("Reset Light")) {
+				m_renderer->m_lightYaw = 45.0f;
+				m_renderer->m_lightPitch = 45.0f;
+			}
+			ImGui::End();
+
+			//3. ç”Ÿæˆæ¸²æŸ“æ•°æ®
+			ImGui::Render();
 			drawFrame();
 
 			auto currentTime = std::chrono::high_resolution_clock::now();
@@ -184,15 +222,14 @@ private:
 			float timeDiff = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 
 			if (timeDiff >= 0.3f) {
-				// ¼ÆËã FPS
+				// è®¡ç®— FPS
 				float fps = frameCount / timeDiff;
 				int fpsinINT = static_cast<int>(fps);
 
-				//std::cout << "FPS: " << fps << " (" << msPerFrame << " ms/frame)" << std::endl;
 				std::string title = "Vulkan - FPS: " + std::to_string(fpsinINT);
 				glfwSetWindowTitle(window, title.c_str());
 
-				// ÖØÖÃ
+				// é‡ç½®
 				lastTime = currentTime;
 				frameCount = 0;
 			}
@@ -207,23 +244,10 @@ private:
 		app->framebufferResized = true;
 	}
 
-	void cleanUpSwapChain()
-	{	
-		m_framebuffers.clear();
-		m_depthTex.reset();
-		if (m_mainRenderPass) {
-			m_mainRenderPass.reset();
-		}
-	}
-
 	void cleanUp()
 	{
 		vkDeviceWaitIdle(m_device->getLogicalDevice());
-		cleanUpSwapChain();
-		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
-		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
-		m_pipeline.reset();
-		m_pipelineLayout.reset();
+		m_renderer->cleanupSwapChainAssets();
 		m_scene.reset();
 		m_renderer.reset();
 		m_swapChain.reset();
@@ -241,8 +265,9 @@ private:
 		}
 
 		m_renderer->updateGlbUBO();
-		m_renderer->beginRenderPass(cmd, m_mainRenderPass->getHandle(), m_framebuffers[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
-		m_scene->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
+		m_renderer->beginRenderPass(cmd, m_renderer->getRenderPass().getHandle(), m_renderer->getFrameBuffers()[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
+		m_scene->draw(cmd, m_renderer->getFrameIndex());
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 		m_renderer->endRenderPass(cmd);
 		VkResult result = m_renderer->endFrame();
 
@@ -256,97 +281,6 @@ private:
 
 	}
 
-	void createRenderPass()
-	{
-		m_mainRenderPass = std::make_unique<RenderPass>(m_device->getLogicalDevice());
-		AttachmentConfig colorAttachment = {};
-		colorAttachment.format = m_swapChain->getSwapChainImageFormat();
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // äÖÈ¾ÍêÓÃÓÚÏÔÊ¾
-		m_mainRenderPass->addAttachment(colorAttachment);
-
-		AttachmentConfig depthAttachment = {};
-		depthAttachment.format = VK_FORMAT_D32_SFLOAT;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // äÖÈ¾ÍêÉî¶ÈÊı¾İ¾Í¿ÉÒÔ¶ªÆúÁË
-		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		m_mainRenderPass->addAttachment(depthAttachment);
-
-		// 3. ÅäÖÃ×ÓÁ÷³Ì (¶ÔÓ¦Ô­À´µÄ VkSubpassDescription ºÍ Reference)
-		SubpassConfig subpass = {};
-		// ÎÒÃÇ¸Õ²Å¼ÓµÄÑÕÉ«¸½¼şË÷ÒıÊÇ 0£¬¸æËß×ÓÁ÷³ÌÍù 0 ºÅ¿ÓÎ»»­
-		subpass.colorAttachmentIndices = { 0 };
-		subpass.depthAttachmentIndex = 1;
-		m_mainRenderPass->addSubpass(subpass);
-
-		DependencyConfig dependency = {};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
-		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		m_mainRenderPass->addDependency(dependency);
-		m_mainRenderPass->create();
-	}
-
-	void createGraphicsPipeline()
-	{
-		/////////////////////////////////////////////////////////////////////////////////////
-		////////////////////// Í¼ĞÎ¹ÜÏß¿É±à³Ì½×¶ÎµÄÅäÖÃ(shaders) /////////////////////////////
-		/////////////////////////////////////////////////////////////////////////////////////
-
-		Shader vertShader(m_device->getLogicalDevice(), "shader/vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		Shader fragShader(m_device->getLogicalDevice(), "shader/frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { vertShader.getStageInfo(), fragShader.getStageInfo() };
-		
-		/////////////////////////////////////////////////////////////////////////////////////
-		////////////////////// Í¼ĞÎ¹ÜÏßÆäËû½×¶ÎµÄÅäÖÃ (¹Ì¶¨¹¦ÄÜ½×¶Î) /////////////////////////////
-		/////////////////////////////////////////////////////////////////////////////////////
-
-		
-		VertexLayout layout;
-		layout.push<glm::vec3>();//Î»ÖÃ
-		layout.push<glm::vec3>();//ÑÕÉ«
-		layout.push<glm::vec2>();//UV
-		layout.push<glm::vec3>();//·¨Ïß
-
-		PipelineBuilder builder;
-		builder.shaderStages.push_back(vertShader.getStageInfo());
-		builder.shaderStages.push_back(fragShader.getStageInfo());
-		builder.setVertexInput(layout.getBindingDescription(), layout.getAttributeDescriptions());
-		builder.viewport = { 0.0f,0.0f,(float)m_swapChain->getSwapChainExtent().width ,(float)m_swapChain->getSwapChainExtent().height ,0.0f,1.0f };
-		builder.scissor = { {0,0}, m_swapChain->getSwapChainExtent() };
-		builder.enableDepthTest();
-
-		descriptorSetLayouts.clear();
-		descriptorSetLayouts.push_back(descriptorSetLayout);
-		m_pipelineLayout = std::make_unique<PipelineLayout>(m_device->getLogicalDevice(), descriptorSetLayouts);
-		builder.setPipelineLayout(m_pipelineLayout->getHandle());
-		
-		VkPipeline rawPipeline = builder.build(m_device->getLogicalDevice(), m_mainRenderPass->getHandle());
-		m_pipeline = std::make_shared<Pipeline>(m_device->getLogicalDevice(), rawPipeline);
-
-	}
-
-	void createSwapchainFrameBuffers()
-	{
-		const std::vector<VkImageView>& swapchainImageViews = m_swapChain->getSwapChainImageViews();
-		m_framebuffers.clear();
-		m_framebuffers.reserve(swapchainImageViews.size());
-
-		for (size_t i = 0; i < swapchainImageViews.size(); i++)
-		{
-			std::vector<VkImageView> attachs = { swapchainImageViews[i], m_depthTex->getImageView()};
-
-			m_framebuffers.push_back(std::make_unique<Framebuffer>(m_device->getLogicalDevice(),
-				m_mainRenderPass->getHandle(), m_swapChain->getSwapChainExtent(), attachs));
-		}
-	}
 
 	void recreateSwapChain()
 	{
@@ -359,42 +293,17 @@ private:
 		}
 
 		vkDeviceWaitIdle(m_device->getLogicalDevice());
+
 		m_swapChain.reset();
-		cleanUpSwapChain();
+		m_renderer->cleanupSwapChainAssets();
 
 		VkExtent2D newExtent = {width, height};
 		m_swapChain = std::make_unique<SwapChain>(*m_device, newExtent);
 		
-		createRenderPass();
-		createGraphicsPipeline();
-		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
-		createSwapchainFrameBuffers();
+		m_renderer->createRenderPass();
+		m_renderer->createDepthResource();
+		m_renderer->createSwapchainFrameBuffers();
 		std::cout << "Recreated Swapchain!" << std::endl;
-	}
-
-	void createTextureSampler()
-	{
-		VkSamplerCreateInfo samplerInfo = {};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.anisotropyEnable = VK_TRUE;
-		samplerInfo.maxAnisotropy = 16;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
-		if (vkCreateSampler(m_device->getLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create texture sampler!");
-		}
 	}
 
 };
@@ -412,6 +321,5 @@ int main()
 		std::cerr << e.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-
 	return EXIT_SUCCESS;
 }

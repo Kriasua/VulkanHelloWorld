@@ -9,6 +9,60 @@ Texture::Texture(Devices& device, uint32_t width, uint32_t height, VkFormat form
 	createImageView(aspectFlags);
 }
 
+std::shared_ptr<Texture> Texture::createPureColorTexture(Devices& device, uint32_t color)
+{
+	VkDeviceSize imageSize = 4; // 1像素 * 4通道
+
+	// 2. 创建 Staging Buffer 并拷贝数据
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	Buffer::createBuffer(
+		device.getLogicalDevice(),
+		device.getPhysicalDevice(),
+		imageSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory
+	);
+
+	void* data;
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, &color, 4);
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+
+	// 3. 实例化 Texture (1x1)
+	std::shared_ptr<Texture> texture = std::make_shared<Texture>(
+		device,
+		1, 1, // 宽高
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT
+	);
+
+	// 4. 转换布局并拷贝
+	texture->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	Buffer::copyBufferToImage(
+		device.getLogicalDevice(),
+		device.getCommandPool(),
+		device.getGraphicsQueue(),
+		stagingBuffer,
+		texture->getImage(),
+		1, 1
+	);
+
+	texture->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	
+	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
+
+	return texture;
+}
+
 std::shared_ptr<Texture> Texture::loadFromFile(Devices& device, const std::string& path)
 {
 	int texWidth, texHeight, texChannels;

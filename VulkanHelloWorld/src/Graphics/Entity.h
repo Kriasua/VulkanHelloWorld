@@ -16,7 +16,7 @@ public:
 	void setScale(glm::vec3 scale) { m_scale = scale; m_modified = true;}
 
 	glm::mat4 getModelMatrix();
-	void draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout, uint32_t currentFrame);
+	void draw(VkCommandBuffer cmd, uint32_t currentFrame);
 
 private:
 	std::shared_ptr<Model> m_model;

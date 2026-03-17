@@ -20,11 +20,13 @@ public:
 
 	std::shared_ptr<Model> loadModel(const std::string& path);
 	std::shared_ptr<Texture> loadTexture(const std::string& path);
+	std::shared_ptr<Texture> loadTexture(uint32_t color);
+
 	void addMaterial(const std::shared_ptr<Material> mat);
 	void addEntity(std::unique_ptr<Entity> entity);
 	void addEntity(std::shared_ptr<Model> model, std::shared_ptr<Material> material);
 
-	void draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout, uint32_t currentFrame);
+	void draw(VkCommandBuffer cmd, uint32_t currentFrame);
 
 	std::vector<std::shared_ptr<Model>>& getModels(){ return m_models; }
 	std::vector<std::shared_ptr<Texture>>& getTextures() { return m_textures; }

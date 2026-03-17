@@ -22,6 +22,8 @@ public:
 	glm::vec3 Right;
 	glm::vec3 WorldUp;
 
+	bool active = true;
+
 	// 欧拉角
 	float Yaw;
 	float Pitch;
@@ -64,18 +66,21 @@ public:
 
 	// 处理鼠标移动
 	void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true) {
-		xoffset *= MouseSensitivity;
-		yoffset *= MouseSensitivity;
+		if (active)
+		{
+			xoffset *= MouseSensitivity;
+			yoffset *= MouseSensitivity;
 
-		Yaw += xoffset;
-		Pitch += yoffset;
+			Yaw += xoffset;
+			Pitch += yoffset;
 
-		// 防止视角发生“翻转”的死锁
-		if (constrainPitch) {
-			if (Pitch > 89.0f)  Pitch = 89.0f;
-			if (Pitch < -89.0f) Pitch = -89.0f;
+			// 防止视角发生“翻转”的死锁
+			if (constrainPitch) {
+				if (Pitch > 89.0f)  Pitch = 89.0f;
+				if (Pitch < -89.0f) Pitch = -89.0f;
+			}
+			updateCameraVectors();
 		}
-		updateCameraVectors();
 	}
 
 	void reset()
@@ -89,6 +94,7 @@ public:
 
 private:
 	void updateCameraVectors() {
+
 		glm::vec3 front;
 		front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
 		front.y = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));

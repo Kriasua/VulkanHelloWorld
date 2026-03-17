@@ -1,4 +1,4 @@
-#version 450
+ï»¿#version 450
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(location = 0) out vec4 outColor;
@@ -9,29 +9,65 @@ layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inNormal;
 layout(location = 4) in vec3 inPos;
 
+
+layout(binding = 0) uniform UniformBufferObject
+{
+	mat4 view;
+	mat4 proj;
+	vec4 lightDir;
+    vec4 lightColor;
+    mat4 lightMat;
+	float intime;
+} ubo;
+
 layout(binding = 1)uniform sampler2D texSampler;
+
 
 void main()
 {	
    
-	vec4 baseColor = texture(texSampler,inTexCoord);
+	//vec4 baseColor = texture(texSampler,inTexCoord);
 	
-	// 2. »·¾³¹â (Ambient)£ºÈÃ±³¹âµÄµØ·½²»ÒªËÀºÚÒ»Æ¬
+
+    //vec3 ambient = 0.3 * baseColor.rgb;
+
+
+    //vec3 norm = normalize(inNormal);
+
+    //vec3 lightDir = normalize(ubo.lightDir.xyz); 
+    
+
+    //float diff = max(dot(norm, lightDir), 0.0);
+    //vec3 diffuse = diff * baseColor.rgb; 
+    //diffuse *= ubo.lightColor.xyz;
+
+    // 4. æ··åˆå‡ºæœ€ç»ˆå¸¦æœ‰å…‰å½±çš„é¢œè‰²
+    //vec3 result = ambient + diffuse;
+    //outColor = vec4(result, baseColor.a);
+
+// 1. é‡‡æ ·åŸºç¡€è´´å›¾
+    vec4 baseColor = texture(texSampler, inTexCoord);
+    
+    // 2. ç¯å¢ƒå…‰ï¼ˆNPR é€šå¸¸ç»™ä¸€ä¸ªæ¯”è¾ƒäº®ä¸”å‡åŒ€çš„åº•è‰²ï¼‰
     vec3 ambient = 0.3 * baseColor.rgb;
 
-	// 3. Âş·´Éä (Diffuse)£ººËĞÄ¹âÕÕÂß¼­
+    // 3. è®¡ç®—å…‰ç…§å¼ºåº¦ (Lambertain)
     vec3 norm = normalize(inNormal);
-    // ¼ÙÉèÌ«ÑôÔÚĞ±ÉÏ·½ (1.0, 2.0, 1.0)
-    vec3 lightDir = normalize(vec3(1.0, 2.0, 1.0)); 
+    vec3 lightDir = normalize(ubo.lightDir.xyz); 
+    float NdotL = dot(norm, lightDir);
+
+    float s1 = step(0.0, NdotL); // å¤§äº 0 å˜ä¸º 1.0
+    float s2 = step(0.5, NdotL); // å¤§äº 0.5 å˜ä¸º 1.0
+    float shadowMask = smoothstep(0.49, 0.51, NdotL);
+    float diff = mix(0.3, 1.0, shadowMask); // åœ¨ 0.3 å’Œ 1.0 ä¹‹é—´å¹³æ»‘è¿‡æ¸¡
+
+    vec3 diffuse = diff * baseColor.rgb * ubo.lightColor.xyz;
+
+    vec3 result = diffuse; 
     
-    // ËãÒ»ÏÂ·¨ÏßºÍÌ«Ñô¹âµÄ¼Ğ½Ç£¬Ô½´¹Ö±Ô½ÁÁ
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * baseColor.rgb; // ¹âÊÇ°×É«µÄ
+    result += ambient;
 
-    // 4. »ìºÏ³ö×îÖÕ´øÓĞ¹âÓ°µÄÑÕÉ«
-    vec3 result = ambient + diffuse;
     outColor = vec4(result, baseColor.a);
-
-	
+    
 
 }

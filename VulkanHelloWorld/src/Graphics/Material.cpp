@@ -1,10 +1,10 @@
 #include "Material.h"
+#include <iostream>
 
-
-Material::Material(Devices& device, int maxFrame, VkDescriptorSetLayout& deslayout)
-	: m_device(device), m_MAX_FRAMES_IN_FLIGHT(maxFrame), m_deslayout(deslayout)
+Material::Material(Devices& device, int maxFrame, std::shared_ptr<Pipeline> pipeline)
+	: m_device(device), m_MAX_FRAMES_IN_FLIGHT(maxFrame), m_pipeline(pipeline)
 {
-
+	m_deslayout = m_pipeline->getDescriptorSetLayout();
 }
 
 void Material::addTexture(uint32_t binding, std::shared_ptr<Texture> texture)
@@ -21,6 +21,7 @@ void Material::addUniformBuffer(uint32_t binding, const std::vector<VkBuffer>& b
 
 void Material::build(Renderer& renderer, VkSampler sampler)
 {
+	std::cout << "Allocating sets with layout: " << m_deslayout << std::endl;
 	std::vector<VkDescriptorSetLayout> layouts(m_MAX_FRAMES_IN_FLIGHT, m_deslayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -114,8 +115,9 @@ void Material::build(Renderer& renderer, VkSampler sampler)
 
 }
 
-void Material::bind(VkCommandBuffer cmdbuf, VkPipelineLayout layout, uint32_t currentFrame)
+void Material::bind(VkCommandBuffer cmdbuf, uint32_t currentFrame)
 {
+	VkPipelineLayout layout = m_pipeline->getPipelineLayout().getHandle();
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[currentFrame], 0, nullptr);
 }

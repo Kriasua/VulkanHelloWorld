@@ -1,6 +1,7 @@
 #pragma once
 #include<vector>
 #include <vulkan/vulkan.h>
+#include <memory>
 
 class PipelineBuilder
 {
@@ -68,8 +69,14 @@ public:
 	~Pipeline();
 
 	VkPipeline& getPipeline() { return m_graphicsPipeline; }
+	void setPipelineLayout(std::unique_ptr<PipelineLayout> layout) { m_pipelineLayout = std::move(layout); }
+	void setDescriptorSetLayout(VkDescriptorSetLayout layout) { m_deslayout = layout; }
 
+	VkDescriptorSetLayout getDescriptorSetLayout() const { return m_deslayout; }
+	PipelineLayout& getPipelineLayout() const { return *m_pipelineLayout; }
 private:
-	VkPipeline m_graphicsPipeline;
-	VkDevice m_device;
+	VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+	VkDevice m_device = VK_NULL_HANDLE;
+	std::unique_ptr<PipelineLayout> m_pipelineLayout;
+	VkDescriptorSetLayout m_deslayout = VK_NULL_HANDLE;
 };

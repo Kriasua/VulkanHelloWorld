@@ -166,4 +166,8 @@ Pipeline::~Pipeline()
 	if (m_graphicsPipeline != VK_NULL_HANDLE) {
 		vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
 	}
+
+	if (m_deslayout != VK_NULL_HANDLE) {
+		vkDestroyDescriptorSetLayout(m_device, m_deslayout, nullptr);
+	}
 }
