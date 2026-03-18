@@ -46,7 +46,7 @@ public:
 	void run()
 	{
 		initWindow();
-		m_device = std::make_unique<Devices>(window);
+		m_device = std::make_unique<Devices>(window,MAX_FRAMES_IN_FLIGHT);
 		m_swapChain = std::make_unique<SwapChain>(*m_device, windowExtent);
 		m_renderer = std::make_unique<Renderer>(*m_device, *m_swapChain, m_camera, MAX_FRAMES_IN_FLIGHT);
 		initVulkan();
@@ -93,11 +93,6 @@ private:
 
 	void initVulkan()
 	{
-		//创建阴影贴图管线
-		//std::shared_ptr<Pipeline> shadowPipeline = PipelineFactory::createShadowPipeline(*m_device,m_renderer->getShadowRenderPass().getHandle(),
-		//Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice()));
-
-
 
 		//创建模型，贴图（实体资源）
 		m_scene = std::make_unique<Scene>(*m_device);
@@ -111,12 +106,14 @@ private:
 			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
 			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
 		m_vikingRoomMat->addTexture(1, m_scene->getTextures()[0], m_renderer->getLinearRepeatSampler());
+		m_vikingRoomMat->addTexture(2, m_renderer->getshadowTexture(), m_renderer->getShadowSampler());
 		m_vikingRoomMat->build(*m_renderer);
 
 		std::shared_ptr<Material> m_PureColorMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), PipelineFactory::createStandardPipeline(
 			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
 			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
 		m_PureColorMat->addTexture(1, m_scene->getTextures()[1], m_renderer->getLinearRepeatSampler());
+		m_PureColorMat->addTexture(2, m_renderer->getshadowTexture(), m_renderer->getShadowSampler());
 		m_PureColorMat->build(*m_renderer);
 
 		m_scene->addMaterial(m_vikingRoomMat);
@@ -268,8 +265,18 @@ private:
 		}
 
 		m_renderer->updateGlbUBO();
+
+		//开始阴影Renderpass
+		m_renderer->beginRenderPass(cmd, m_renderer->getShadowRenderPass(), m_renderer->getShadowPassFrameBuffer()->getHandle(), {2048,2048});
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderer->getShadowPipeline()->getPipeline());
+		VkDescriptorSet shadowSet = m_renderer->getShadowDescriptorSet(m_renderer->getFrameIndex());
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderer->getShadowPipeline()->getPipelineLayout().getHandle(), 0, 1, &shadowSet, 0, nullptr);
+		m_scene->drawforShadow(cmd, m_renderer->getShadowPipeline()->getPipelineLayout().getHandle());
+		m_renderer->endRenderPass(cmd);
+
+		//开始场景渲染的主pass
 		m_renderer->beginRenderPass(cmd, m_renderer->getRenderPass(), m_renderer->getFrameBuffers()[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
-		m_scene->draw(cmd, m_renderer->getFrameIndex());
+		m_scene->drawMain(cmd, m_renderer->getFrameIndex());
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 		m_renderer->endRenderPass(cmd);
 		VkResult result = m_renderer->endFrame();

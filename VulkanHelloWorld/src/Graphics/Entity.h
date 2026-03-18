@@ -16,8 +16,8 @@ public:
 	void setScale(glm::vec3 scale) { m_scale = scale; m_modified = true;}
 
 	glm::mat4 getModelMatrix();
-	void draw(VkCommandBuffer cmd, uint32_t currentFrame);
-
+	void drawMain(VkCommandBuffer cmd, uint32_t currentFrame);
+	void drawforShadow(VkCommandBuffer cmd, VkPipelineLayout shadowPipelineLayout);
 private:
 	std::shared_ptr<Model> m_model;
 	std::shared_ptr<Material> m_material;

@@ -9,6 +9,7 @@
 #include "../Graphics/RenderPass.h"
 #include "../Graphics/Framebuffer.h"
 #include "../Graphics/Texture.h"
+#include "../Graphics/PipelineBuilder.h"
 
 struct GlobalUniformBufferObject {
 	alignas(16) glm::mat4 view;
@@ -53,8 +54,10 @@ public:
 	RenderPass& getRenderPass() { return *m_RenderPass; }
 	RenderPass& getShadowRenderPass() { return *m_shadowRenderPass; }
 	std::vector<std::unique_ptr<UniformBuffer>>& getGlbUniformBuffers() { return m_gblUniformBuffers; }
-
-
+	const std::shared_ptr<Texture> getshadowTexture() const { return m_shadowDepthTex; }
+	const std::shared_ptr<Pipeline> getShadowPipeline() const { return m_shadowPipeline; }
+	VkDescriptorSet getShadowDescriptorSet(uint32_t frameIndex) { return m_shadowDescriptorSets[frameIndex]; }
+	const std::unique_ptr<Framebuffer>& getShadowPassFrameBuffer() const { return m_shadowPassframebuffer; }
 private:
 	const int m_MAX_FRAMES_IN_FLIGHT;
 	size_t m_currentFrame = 0;
@@ -63,11 +66,13 @@ private:
 	Devices& m_device;
 	SwapChain& m_swapchain;
 	Camera& m_camera;
-
+	std::shared_ptr<Pipeline> m_shadowPipeline;
+	VkDescriptorSetLayout m_shadowDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> m_shadowDescriptorSets;
 	VkDescriptorPool m_imguiPool = VK_NULL_HANDLE;
 
-	std::unique_ptr<Texture> m_depthTex;
-	std::unique_ptr<Texture> m_shadowDepthTex;
+	std::shared_ptr<Texture> m_depthTex;
+	std::shared_ptr<Texture> m_shadowDepthTex;
 
 	VkSampler m_LinearRepeatSampler = VK_NULL_HANDLE;
 	VkSampler m_NearestRepeatSampler = VK_NULL_HANDLE;
@@ -90,4 +95,5 @@ private:
 	void createGlobalUniformBuffers();
 	void createSamplers();
 	void createShadowMapFramebuffers();
+	void createShadowDepthResources();
 };

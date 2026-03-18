@@ -97,9 +97,9 @@ std::shared_ptr<Texture> Texture::loadFromFile(Devices& device, const std::strin
 	return texture;
 }
 
-std::unique_ptr<Texture> Texture::createDepthTexture(Devices& device, uint32_t width, uint32_t height, VkImageUsageFlags usage)
+std::shared_ptr<Texture> Texture::createDepthTexture(Devices& device, uint32_t width, uint32_t height, VkImageUsageFlags usage)
 {
-	return std::make_unique<Texture>(
+	return std::make_shared<Texture>(
 		device,
 		width,
 		height,

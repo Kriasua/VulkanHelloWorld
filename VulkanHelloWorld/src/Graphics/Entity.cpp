@@ -28,12 +28,20 @@ glm::mat4 Entity::getModelMatrix()
 	return m_modelMatrix;
 }
 
-void Entity::draw(VkCommandBuffer cmd, uint32_t currentFrame)
+void Entity::drawMain(VkCommandBuffer cmd, uint32_t currentFrame)
 {
 	glm::mat4 modelMat = getModelMatrix();
+	m_material->bind(cmd, currentFrame);
 	VkPipelineLayout pipelineLayout = m_material->getPipeline()->getPipelineLayout().getHandle();
 	vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMat);
 	m_model->bind(cmd);
-	m_material->bind(cmd, currentFrame);
+	m_model->draw(cmd);
+}
+
+void Entity::drawforShadow(VkCommandBuffer cmd, VkPipelineLayout shadowPipelineLayout)
+{
+	glm::mat4 modelMat = getModelMatrix();
+	vkCmdPushConstants(cmd, shadowPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMat);
+	m_model->bind(cmd);
 	m_model->draw(cmd);
 }

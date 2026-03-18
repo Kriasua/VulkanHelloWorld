@@ -10,5 +10,5 @@ class Descriptor
 {
 public:
 	static VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
-	static void createDescriptorPool(VkDevice device, size_t swapChainImagesSize, VkDescriptorPool& descriptorPool);
+	static VkDescriptorSetLayout createShadowDescriptorSetLayout(VkDevice device);
 };

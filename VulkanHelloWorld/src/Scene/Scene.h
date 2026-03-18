@@ -26,7 +26,8 @@ public:
 	void addEntity(std::unique_ptr<Entity> entity);
 	void addEntity(std::shared_ptr<Model> model, std::shared_ptr<Material> material);
 
-	void draw(VkCommandBuffer cmd, uint32_t currentFrame);
+	void drawMain(VkCommandBuffer cmd, uint32_t currentFrame);
+	void drawforShadow(VkCommandBuffer cmd, VkPipelineLayout shadowPipelineLayout);
 
 	std::vector<std::shared_ptr<Model>>& getModels(){ return m_models; }
 	std::vector<std::shared_ptr<Texture>>& getTextures() { return m_textures; }

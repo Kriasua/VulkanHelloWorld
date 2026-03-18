@@ -5,6 +5,8 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include "../Buffer.h"
+#include "../Description.h"
+#include "../Graphics/PipelineFactory.h"
 
 Renderer::Renderer(Devices& device, SwapChain& swapchain, Camera& cam, const int maxFrame)
 	:m_device(device), m_swapchain(swapchain), m_MAX_FRAMES_IN_FLIGHT(maxFrame), m_camera(cam)
@@ -17,6 +19,7 @@ Renderer::Renderer(Devices& device, SwapChain& swapchain, Camera& cam, const int
 	createDepthResource();
 	createSwapchainFrameBuffers();
 	createShadowMapFramebuffers();
+	createShadowDepthResources();
 }
 
 void Renderer::createRenderPass()
@@ -396,6 +399,48 @@ void Renderer::createShadowMapFramebuffers()
 	std::vector<VkImageView> attachs = { m_shadowDepthTex->getImageView() };
 	m_shadowPassframebuffer = std::make_unique<Framebuffer>(m_device.getLogicalDevice(),
 			m_shadowRenderPass->getHandle(), extent, attachs);
+}
+
+void Renderer::createShadowDepthResources()
+{
+	m_shadowDescriptorSetLayout = Descriptor::createShadowDescriptorSetLayout(m_device.getLogicalDevice());
+	m_shadowPipeline = PipelineFactory::createShadowPipeline(m_device,m_shadowRenderPass->getHandle(),m_shadowDescriptorSetLayout);
+	// 1. 准备蓝图 (假设你已经建好了那个只有 binding 0 的 m_shadowDescriptorSetLayout)
+	std::vector<VkDescriptorSetLayout> layouts(m_MAX_FRAMES_IN_FLIGHT, m_shadowDescriptorSetLayout);
+
+	// 2. 申请空箱子 (分配)
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = m_device.getDescriptorPool();
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(m_MAX_FRAMES_IN_FLIGHT);
+	allocInfo.pSetLayouts = layouts.data();
+
+	m_shadowDescriptorSets.resize(m_MAX_FRAMES_IN_FLIGHT);
+	if (vkAllocateDescriptorSets(m_device.getLogicalDevice(), &allocInfo, m_shadowDescriptorSets.data()) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate shadow descriptor sets!");
+	}
+
+	// 3. 插线上电 (更新：我们只需要绑一个全局的 UBO 即可)
+	for (size_t i = 0; i < m_MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// 绑定你每帧的 Global UBO
+		VkDescriptorBufferInfo globalBufferInfo{};
+		globalBufferInfo.buffer = m_gblUniformBuffers[i]->getHandle(); // 取出你 renderer 里的 UBO buffer
+		globalBufferInfo.offset = 0;
+		globalBufferInfo.range = sizeof(GlobalUniformBufferObject);
+
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = m_shadowDescriptorSets[i];
+		descriptorWrite.dstBinding = 0; // 对应 Shadow Layout 里的 0 号位
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pBufferInfo = &globalBufferInfo;
+
+		// 提交写入
+		vkUpdateDescriptorSets(m_device.getLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
+	}
 }
 
 void Renderer::createSwapchainFrameBuffers()

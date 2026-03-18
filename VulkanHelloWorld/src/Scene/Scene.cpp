@@ -62,11 +62,19 @@ void Scene::addEntity(std::shared_ptr<Model> model, std::shared_ptr<Material> ma
 	m_entities.push_back(std::make_unique<Entity>(model, material));
 }
 
-void Scene::draw(VkCommandBuffer cmd, uint32_t currentFrame)
+void Scene::drawMain(VkCommandBuffer cmd, uint32_t currentFrame)
 {
 	for (auto& entity : m_entities)
 	{
-		entity->draw(cmd, currentFrame);
+		entity->drawMain(cmd, currentFrame);
+	}
+}
+
+void Scene::drawforShadow(VkCommandBuffer cmd, VkPipelineLayout shadowPipelineLayout)
+{
+	for (auto& entity : m_entities)
+	{
+		entity->drawforShadow(cmd, shadowPipelineLayout);
 	}
 }
 

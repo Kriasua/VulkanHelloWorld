@@ -31,7 +31,7 @@ class Devices
 {
 public:
 	const static inline std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-	Devices(GLFWwindow* window);
+	Devices(GLFWwindow* window, int maxFrame);
 	~Devices();
 
 	Devices(const Devices&) = delete;
@@ -61,6 +61,8 @@ private:
 	VkQueue m_presentQueue;
 	VkCommandPool m_commandPool;
 	VkDescriptorPool m_descriptorPool;
+
+	const int m_MAX_FRAMES_IN_FLIGHT;
 
 	void createInstance();
 	void setupDebugCallback();

@@ -5,7 +5,7 @@
 #include <set>
 #include <array>
 
-Devices::Devices(GLFWwindow* window)
+Devices::Devices(GLFWwindow* window, int maxFrame) : m_MAX_FRAMES_IN_FLIGHT(maxFrame)
 {
 	createInstance();
 	setupDebugCallback();
@@ -187,30 +187,24 @@ void Devices::createCommandPool()
 
 void Devices::createDescriptorPool()
 {
-	// 定义这个池子总共能容纳多少个“零件”
-	// 作为一个起步的引擎，我们可以先定一个较大的硬指标
+
 	const uint32_t MAX_MATERIAL_COUNT = 1000;
+	const uint32_t FRAMES_IN_FLIGHT = m_MAX_FRAMES_IN_FLIGHT; 
+
+	const uint32_t MAX_SETS = MAX_MATERIAL_COUNT * FRAMES_IN_FLIGHT;
 
 	std::array<VkDescriptorPoolSize, 2> poolSizes{};
-	// 假设每个材质有 1 个 UBO，这里预留 1000 个
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = MAX_MATERIAL_COUNT;
 
-	// 假设每个材质有 1 个贴图槽位，这里预留 1000 个
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[0].descriptorCount = MAX_SETS * 1; 
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = MAX_MATERIAL_COUNT;
+	poolSizes[1].descriptorCount = MAX_SETS * 2; 
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-
-	// 🌟 重点 1：maxSets 决定了你一共能调用多少次 vkAllocateDescriptorSets
-	// 因为每个材质在 3 重缓冲下需要 3 个 Sets，所以这里设为 3000
-	poolInfo.maxSets = MAX_MATERIAL_COUNT * 3;
-
-	// 🌟 重点 2：加上这个 Flag，允许你在不销毁池子的情况下，单独回收某个材质占用的 Sets
-	// 这对于动态加载/卸载物体的引擎来说非常重要
+	poolInfo.maxSets = MAX_SETS; 
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
 	if (vkCreateDescriptorPool(m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
