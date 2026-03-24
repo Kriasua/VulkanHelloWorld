@@ -119,7 +119,9 @@ private:
 		m_scene->addMaterial(m_vikingRoomMat);
 		m_scene->addMaterial(m_PureColorMat);
 		m_scene->addEntity(m_scene->getModels()[0], m_scene->getMaterials()[0]);
-		m_scene->addEntity(m_scene->getModels()[1], m_scene->getMaterials()[1]);
+		std::unique_ptr<Entity> ground = std::make_unique<Entity>(m_scene->getModels()[1], m_scene->getMaterials()[1]);
+		ground->setPosition(glm::vec3{ 0.0f,0.0f,-2.0f });
+		m_scene->addEntity(std::move(ground));
 
 		float offset = 2.0f;
 		float sscale = 0.9f;

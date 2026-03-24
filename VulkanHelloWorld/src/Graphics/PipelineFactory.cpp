@@ -70,7 +70,7 @@ std::shared_ptr<Pipeline> PipelineFactory::createStandardPipeline(Devices& devic
 		// 3. 图元装配
 		builder.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-		// 4. 光栅化器设置 (🌟 区别二 & 三：剔除正面 + 开启深度偏移)
+		// 4. 光栅化器设置 (区别二 & 三：剔除正面 + 开启深度偏移)
 		builder.rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		// 强烈建议在算阴影时剔除正面 (FRONT_BIT)，只画背面。这能极大缓解“漏光”和“彼得潘效应”
 		builder.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
@@ -88,10 +88,10 @@ std::shared_ptr<Pipeline> PipelineFactory::createStandardPipeline(Devices& devic
 		builder.multisampling.sampleShadingEnable = VK_FALSE;
 
 		// 6. 深度测试设置
-		builder.enableDepthTest(); // 调用你封装好的函数开启深度读写
+		builder.enableDepthTest(); 
 		builder.depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
-		// 7. 颜色混合设置 (🌟 区别四：因为 RenderPass 里没有颜色坑位，这里必须彻底置空！)
+		// 7. 颜色混合设置 (区别四：因为 RenderPass 里没有颜色坑位，这里必须彻底置空！)
 		builder.colorBlending.logicOpEnable = VK_FALSE;
 		builder.colorBlending.attachmentCount = 0;       // 极其关键：告诉管线不输出任何颜色
 		builder.colorBlending.pAttachments = nullptr;    // 极其关键：清空附件指针

@@ -1,4 +1,5 @@
-﻿#include "Renderer.h"
+﻿#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "Renderer.h"
 #include <stdexcept>
 #include <array>
 #include <imgui/imgui.h>
@@ -221,10 +222,11 @@ void Renderer::updateGlbUBO()
 	ubo.lightColor = m_lightColor; 
 
 	//生成光源出深度贴图的VP矩阵
-	// a.设定正交投影范围(根据你平面 14.14 的半径，设为 16.0 留点余量)
-	float sceneRadius = 16.0f;
+	float sceneRadius = 14.0f;
 	// 参数: left, right, bottom, top, zNear, zFar
-	glm::mat4 lightProjection = glm::ortho(-sceneRadius, sceneRadius, -sceneRadius, sceneRadius, 1.0f, 60.0f);
+	float zNear = 100.0f;   
+	float zFar = 0.1f;
+	glm::mat4 lightProjection = glm::ortho(-sceneRadius, sceneRadius, -sceneRadius, sceneRadius, zNear, zFar);
 
 	// 翻转轴
 	lightProjection[1][1] *= -1;
