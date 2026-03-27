@@ -34,8 +34,8 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 
-const uint32_t WIDTH = 2560;
-const uint32_t HEIGHT = 1440;
+const uint32_t WIDTH = 1920;
+const uint32_t HEIGHT = 1080;
 const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class HelloTriangleApplication
@@ -79,6 +79,8 @@ private:
 
 	bool framebufferResized = false;
 
+	bool qKeyPressedLastFrame = false;
+
 	void initWindow() {
 		glfwInit();
 
@@ -97,7 +99,7 @@ private:
 		//创建模型，贴图（实体资源）
 		m_scene = std::make_unique<Scene>(*m_device);
 		m_scene->loadTexture("images/viking_room.png");//0号贴图
-		m_scene->loadTexture(0xFFFFFF00);//1号贴图
+		m_scene->loadTexture(0xFFFFFFFF);//1号贴图
 		m_scene->loadModel("models/VikingRoom/viking_room.obj");//0号模型
 		m_scene->loadModel("models/plane/plane.obj");//1号模型
 
@@ -147,19 +149,19 @@ private:
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) m_camera.processKeyboard(RIGHT, deltaTime);
 		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) m_camera.reset();
 
-		// 按 Tab 键释放/锁定鼠标
-		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-			if (m_camera.active)
-			{
+		bool qKeyPressedThisFrame = (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
+
+		if (qKeyPressedThisFrame && !qKeyPressedLastFrame) {
+			if (m_camera.active) {
 				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 				m_camera.active = false;
 			}
-			else
-			{
+			else {
 				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 				m_camera.active = true;
 			}
 		}
+		qKeyPressedLastFrame = qKeyPressedThisFrame;
 	}
 
 	//C语言api绑定回调函数只能静态，因为非静态有this指针，它不认识这个
@@ -179,7 +181,7 @@ private:
 		}
 
 		float xoffset = lastX - xpos;
-		float yoffset = lastY - ypos; // 注意这里是反的，因为屏幕Y坐标是从上往下的
+		float yoffset = lastY - ypos; 
 		lastX = xpos;
 		lastY = ypos;
 
@@ -192,10 +194,9 @@ private:
 		int frameCount = 0;
 		while (!glfwWindowShouldClose(window))
 		{
-			float currentFrame = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+			float currentFrame = static_cast<float>(glfwGetTime());
 			deltaTime = currentFrame - lastFrame;
 			lastFrame = currentFrame;
-
 			glfwPollEvents();
 			processInput(window);
 			// 1. ImGui 开启新帧
@@ -203,12 +204,12 @@ private:
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 
-			// 2. 编写你的控制窗口
+			// 2. 控制窗口
 
 			ImGui::Begin("Light Controller");
 			ImGui::SliderFloat("Light Yaw", &m_renderer->m_lightYaw, 0.0f, 360.0f);
 			ImGui::SliderFloat("Light Pitch", &m_renderer->m_lightPitch, -90.0f, 90.0f);
-			// 增加一个重置按钮（很有用）
+			// 增加一个重置按钮
 			if (ImGui::Button("Reset Light")) {
 				m_renderer->m_lightYaw = 45.0f;
 				m_renderer->m_lightPitch = 45.0f;

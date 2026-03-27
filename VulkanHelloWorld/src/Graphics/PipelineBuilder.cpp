@@ -17,7 +17,7 @@ PipelineBuilder::PipelineBuilder()
 	//三角形填充方式，这里是填满（标准做法）
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	//正面判定，三角形顶点按顺时针方向排列为正面
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;

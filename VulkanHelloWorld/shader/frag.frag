@@ -23,35 +23,47 @@ layout(binding = 0) uniform UniformBufferObject
 layout(binding = 1)uniform sampler2D texSampler;
 layout(binding = 2) uniform sampler2D shadowMap;
 
-float calculateShadow(vec3 worldPos) {
-    // 1. 将世界坐标转换到光源裁剪空间 (Light Clip Space)
+
+float calculatePCFShadow(vec3 worldPos) {
+
     vec4 shadowCoord = ubo.lightMat * vec4(worldPos, 1.0);
     
-    // 2. 执行透视除法 (虽然正交投影下 w 通常是 1，但这是标准写法)
+
     vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
     
-    // 3. 变换坐标范围：从 [-1, 1] 映射到 [0, 1] 才能采样贴图
-    // 注意：Vulkan 的 Y 轴方向已经在你的矩阵翻转里处理过了
+    // 从 [-1, 1] 映射到 [0, 1]
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
     
     // 如果坐标在 [0, 1] 范围外，说明在光源视锥体外，通常不设阴影
-    if (projCoords.z > 1.0 || projCoords.z < 0.0) return 1.0;
+    if (projCoords.z > 1.0 || projCoords.z < 0.0 || 
+        projCoords.x > 1.0 || projCoords.x < 0.0 || 
+        projCoords.y > 1.0 || projCoords.y < 0.0) {
+        return 1.0; 
+    }
 
-    // 4. 采样阴影贴图中的深度值（记录的是离光源最近的距离）
-    float closestDepth = texture(shadowMap, projCoords.xy).r;
-    
-    // 5. 当前像素到光源的实际深度
     float currentDepth = projCoords.z;
 
-    // 6. 🌟 阴影偏移 (Bias)：防止阴影粉刺 (Shadow Acne)
-    // 根据表面法线和光线角度调整偏移量，让阴影更干净
+    // 计算自适应偏移量，防止阴影失真(Shadow Acne)
     float bias = max(0.005 * (1.0 - dot(normalize(inNormal), normalize(ubo.lightDir.xyz))), 0.0005);
     
-    // 7. 比较深度：如果当前点比最近点还要深，说明被挡住了
-    // 因为你之前调的是 Near=100, Far=0.1 这种“反向深度”，
-    // 如果你在 RenderDoc 看到房子是黑（小），地是灰（大），那依然满足 current > closest 就是阴影。
-    float shadow = currentDepth > closestDepth + bias ? 0.0 : 1.0;
+    // --- PCF 核心逻辑 ---
+    float shadow = 0.0;
+    // 获取阴影贴图的纹素大小 (1.0 / 贴图宽高)
+    vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0));
 
+    // 3x3 采样循环
+    for(int x = -2; x <= 2; ++x)
+    {
+        for(int y = -2; y <= 2; ++y)
+        {
+            // 采样周围的深度值
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            // 如果当前深度大于采样深度+偏移量，说明在阴影中(0.0)，否则被照亮(1.0)
+            shadow += currentDepth > pcfDepth + bias ? 0.0 : 1.0;        
+        }    
+    }
+    shadow /= 25.0;
+    
     return shadow;
 }
 
@@ -59,22 +71,21 @@ float calculateShadow(vec3 worldPos) {
 void main()
 {	
 
-// 1. 采样基础贴图
     vec4 baseColor = texture(texSampler, inTexCoord);
     
-    // 2. 环境光（NPR 通常给一个比较亮且均匀的底色）
+
     vec3 ambient = 0.3 * baseColor.rgb;
 
-    // 3. 计算光照强度 (Lambertain)
+
     vec3 norm = normalize(inNormal);
     vec3 lightDir = normalize(ubo.lightDir.xyz); 
     float NdotL = dot(norm, lightDir);
 
     float shadowMask = smoothstep(0.49, 0.51, NdotL);
-    float diffIntensity = mix(0.3, 1.0, shadowMask); // 漫反射强度
+    float diffIntensity = mix(0.3, 1.0, shadowMask); 
 
-    // 4. 🌟 引入阴影贴图计算
-    float shadow = calculateShadow(inPos);
+
+    float shadow = calculatePCFShadow(inPos);
 
     vec3 diffuse = diffIntensity * baseColor.rgb * ubo.lightColor.xyz * shadow;
 
